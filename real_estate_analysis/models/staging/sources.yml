@@ -1,0 +1,8 @@
+version: 2
+
+sources:
+  - name: dvf
+    schema: main
+    tables:
+      - name: dvf
+        description: "Demandes de Valeurs Foncières - Transactions immobilières françaises 2021-2025"

@@ -1,0 +1,37 @@
+version: 2
+
+seeds:
+  - name: iris_59
+    description: >
+      Contours IRIS du département 59 (IGN / INSEE), extraits du GeoPackage national.
+      Géométries en WGS84, simplifiées à ~10 m et arrondies à 5 décimales (~1 m),
+      stockées en WKT et converties en géométrie dans stg_geospacial_coordinates.
+    config:
+      column_types:
+        code_iris: varchar
+        nom_iris: varchar
+        nom_commune: varchar
+        code_insee: varchar
+        iris: varchar
+        type_iris: varchar
+        geometrie_wkt: varchar
+    columns:
+      - name: code_iris
+        description: "Code IRIS (9 caractères)"
+        data_tests:
+          - unique
+          - not_null
+      - name: nom_iris
+        description: "Nom de l'IRIS"
+      - name: nom_commune
+        description: "Nom de la commune"
+      - name: code_insee
+        description: "Code INSEE de la commune"
+      - name: iris
+        description: "Numéro IRIS dans la commune"
+      - name: type_iris
+        description: "Type d'IRIS (H=Habitat, A=Activité, D=Divers, Z=Non habité)"
+      - name: geometrie_wkt
+        description: "Géométrie MULTIPOLYGON au format WKT"
+        data_tests:
+          - not_null

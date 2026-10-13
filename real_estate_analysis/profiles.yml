@@ -1,0 +1,14 @@
+real_estate_analysis:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: dev.duckdb
+      threads: 4
+      schema: main
+      extensions:
+        - parquet
+        - httpfs
+        - spatial
+      settings:
+        memory_limit: 4GB

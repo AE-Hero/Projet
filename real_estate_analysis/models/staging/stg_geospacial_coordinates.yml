@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: stg_geospacial_coordinates
+    description: "Contours IRIS INSEE - staging avec bbox précalculée"
+    columns:
+      - name: code_iris
+        description: "Code IRIS (9 caractères)"
+      - name: nom_iris
+        description: "Nom de l'IRIS"
+      - name: nom_commune
+        description: "Nom de la commune"
+      - name: code_insee
+        description: "Code INSEE de la commune"
+      - name: iris
+        description: "Numéro IRIS dans la commune"
+      - name: type_iris
+        description: "Type d'IRIS (H=Habitat, A=Activité, D=Divers, Z=Non habité)"
+      - name: geom
+        description: "Géométrie MULTIPOLYGON en WGS84"
+      - name: bbox_xmin
+        description: "Longitude min de la bounding box"
+      - name: bbox_xmax
+        description: "Longitude max de la bounding box"
+      - name: bbox_ymin
+        description: "Latitude min de la bounding box"
+      - name: bbox_ymax
+        description: "Latitude max de la bounding box"
