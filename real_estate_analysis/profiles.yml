@@ -1,7 +1,31 @@
 real_estate_analysis:
-  target: dev
+  target: "{{ env_var('DBT_TARGET') }}"
   outputs:
     dev:
+      type: duckdb
+      path: dev.duckdb
+      threads: 4
+      schema: main
+      extensions:
+        - parquet
+        - httpfs
+        - spatial
+      settings:
+        memory_limit: 4GB
+
+    preprod:
+      type: duckdb
+      path: dev.duckdb
+      threads: 4
+      schema: main
+      extensions:
+        - parquet
+        - httpfs
+        - spatial
+      settings:
+        memory_limit: 4GB
+
+    prod:
       type: duckdb
       path: dev.duckdb
       threads: 4
