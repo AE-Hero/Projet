@@ -26,7 +26,7 @@
 
     {% set existing = adapter.get_relation(database=target.database, schema="main", identifier="dvf") %}
     {% if existing and not force %}
-        {{ log("main.dvf déjà présente : chargement ignoré (--vars '{dvf_reload: true}' pour recharger)", info=true) }}
+        {{ log("\x1b[32m[DVF] main.dvf déjà présente : chargement ignoré (--vars '{dvf_reload: true}' pour recharger)\x1b[0m", info=true) }}
         {{ return("") }}
     {% endif %}
 

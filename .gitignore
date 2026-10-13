@@ -12,5 +12,5 @@ target/
 dbt_packages/
 logs/
 .DS*
-.vs_code/*
+.vscode/*.json
 .user.yml
