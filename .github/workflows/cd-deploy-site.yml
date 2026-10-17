@@ -1,4 +1,4 @@
-name: dbt CD deploy site
+name: ⚙️ CD - Deploy site
 
 on:
   push:
