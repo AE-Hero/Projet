@@ -1,3 +1,4 @@
-dbt-core
-dbt-duckdb
-mkdocs-material>=9.5
+dbt-core==1.9.11
+dbt-duckdb==1.9.6
+sqlfluff==3.5.0
+sqlfluff-templater-dbt==3.5.0
