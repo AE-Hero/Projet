@@ -2,8 +2,8 @@
 """Génère un résumé Markdown de target/run_results.json pour GitHub Actions.
 
 Usage :
-    python scripts/dbt_summary.py >> "$GITHUB_STEP_SUMMARY"
-    python scripts/dbt_summary.py --path target/run_results.json
+    python ../.github/scripts/format-ci-dbt-build.py > summary.md
+    python ../.github/scripts/format-ci-dbt-build.py --path target/run_results.json
 """
 
 import argparse
@@ -13,22 +13,31 @@ import sys
 from pathlib import Path
 
 FAILED_STATUSES = ("error", "fail")
+WARNING_STATUSES = ("warn",)
 
 
 def build_summary(run_results_path: Path) -> str:
     if not run_results_path.exists():
-        return f"Pas de {run_results_path.name}"
+        return f"## Résultat dbt build\n\nPas de {run_results_path.name}\n"
 
     results = json.loads(run_results_path.read_text())["results"]
     counts = collections.Counter(r["status"] for r in results)
+    failed = [r for r in results if r["status"] in FAILED_STATUSES]
+    warned = [r for r in results if r["status"] in WARNING_STATUSES]
 
-    lines = ["## Résultat dbt build", "", "| Statut | Nombre |", "|---|---|"]
+    icon = "❌" if failed else "✅"
+    lines = [f"## {icon} Résultat dbt build", "", "| Statut | Nombre |", "|---|---|"]
     lines += [f"| {status} | {n} |" for status, n in sorted(counts.items())]
 
-    failed = [r for r in results if r["status"] in FAILED_STATUSES]
     if failed:
         lines += ["", "### En échec", ""]
         lines += [f"- `{r['unique_id']}` : {r['status']}" for r in failed]
+    else:
+        lines += ["", f"**Tout est ok** : {len(results)} ressource(s) exécutée(s) sans erreur."]
+
+    if warned:
+        lines += ["", f"⚠️ {len(warned)} avertissement(s) :", ""]
+        lines += [f"- `{r['unique_id']}`" for r in warned]
 
     return "\n".join(lines) + "\n"
 
