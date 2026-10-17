@@ -40,8 +40,8 @@ theme:
     - content.code.copy
     - search.highlight
 
-# "Documentation dbt" (et les dashboards intégrés dans la page Dashboards) pointent vers
-# des dossiers produits par le workflow de déploiement : ils n'existent pas dans docs/.
+# Les pages Dashboards et Documentation dbt intègrent des dossiers (charts/, dbt-docs/)
+# produits par le workflow de déploiement : ils n'existent pas dans docs/.
 validation:
   nav:
     not_found: ignore
@@ -53,11 +53,11 @@ validation:
 nav:
   - Accueil: index.md
   - Dashboards: dashboards.md
-  - Documentation dbt: dbt-docs/index.html
+  - Documentation dbt: documentation-dbt.md
   - Explorateur SQL: explorer.md
 
 extra:
-  generator: false
+  generator: false   # retire la mention "Made with Material for MkDocs"
 
 extra_css:
   - stylesheets/site.css
