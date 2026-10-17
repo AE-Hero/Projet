@@ -1,41 +1,182 @@
-title: "This is the parent board"
-width: 600
+name: ⚙️ CD - Deploy site
 
-rows:
-  - text: |
-      With just **some text** on it. It's Markdown, so we can put things like
-      [links](https://example.com/), *emphasis*, and lists:
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "docs-requirements.txt"
+      - "requirements.txt"
+      - ".github/workflows/cd-deploy-site.yml"
+      - ".github/scripts/export_parquet.py"
 
-      - keep prose close to the data
-      - call out important details
-      - add structure without adding a chart
-    style:
-      border:
-        width: 1
-        color: "#cbd5e1"
+  # Reconstruit le site après chaque déploiement preprod / prod
+  workflow_run:
+    workflows: ["dbt CD deploy preprod", "dbt CD deploy prod"]
+    types: [completed]
 
-  - title: "Nested board"
-    text: |
-      This is a nested board with its own border.
-    style:
-      border:
-        width: 1
-        color: "#cbd5e1"
+  workflow_dispatch:
 
-  - title: "Two nested boards"
-    cols:
-      - text: |
-          And here's another with just text, no title.
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
 
-          - **Bold text** works inside nested boards.
-          - *Italic text* does too.
-          - Bullets make short notes easy to scan.
-        style:
-          border:
-            width: 1
-            color: "#cbd5e1"
-      - title: "And another with just a title"
-        style:
-          border:
-            width: 1
-            color: "#cbd5e1"
+permissions:
+  contents: read
+
+env:
+  DBT_PROFILES_DIR: .
+  EXPORT_SCHEMAS: ""          # vide = tous les schémas (hors raw*, _*)
+  EXPORT_MAX_TABLE_MB: "100"
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            docs-requirements.txt
+            requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r docs-requirements.txt
+          pip install -r requirements.txt
+
+      # Bases et boards publiés par les CD preprod / prod.
+      # Absents au tout premier run : on continue sans.
+      - name: Download published DBs and boards
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p real_estate_analysis/_downloads
+          for env in prod preprod; do
+            gh release download "db-${env}" --pattern "${env}.duckdb" \
+              --dir real_estate_analysis --clobber || echo "Pas de base ${env} publiée."
+            gh release download "db-${env}" --pattern "charts-${env}.tar.gz" \
+              --dir real_estate_analysis/_downloads --clobber || true
+          done
+
+      # Un site complet par environnement : site/prod/ et site/preprod/
+      - name: Build one site per environment
+        run: |
+          mkdir -p site
+          (cd real_estate_analysis && dbt deps)
+
+          for env in prod preprod; do
+            other=preprod
+            [ "$env" = preprod ] && other=prod
+            out="site/${env}"
+
+            # 1. Copie des pages avec le nom de l'environnement et du repo
+            rm -rf docs_build
+            cp -r docs docs_build
+            grep -rl "__ENV__\|__OTHER_ENV__\|__REPO__" docs_build | xargs -r sed -i \
+              "s#__ENV__#${env}#g; s#__OTHER_ENV__#${other}#g; s#__REPO__#${GITHUB_REPOSITORY}#g"
+
+            # 2. Site MkDocs de l'environnement
+            DOCS_DIR=docs_build SITE_NAME="Projet fil rouge - Real Estate Analysis (${env})" \
+              mkdocs build -d "$out"
+
+            if [ -f "real_estate_analysis/${env}.duckdb" ]; then
+              # 3. Doc dbt générée depuis la base de l'environnement
+              (cd real_estate_analysis && dbt docs generate --target "$env")
+              mkdir -p "$out/dbt-docs"
+              cp real_estate_analysis/target/index.html \
+                 real_estate_analysis/target/manifest.json \
+                 real_estate_analysis/target/catalog.json "$out/dbt-docs/"
+
+              # 4. Parquet pour l'explorateur (facultatif)
+              if [ -f .github/scripts/export_parquet.py ]; then
+                python .github/scripts/export_parquet.py --env "$env" \
+                  --db "real_estate_analysis/${env}.duckdb" --out "$out/data" \
+                  --schemas "$EXPORT_SCHEMAS" \
+                  --max-table-mb "$EXPORT_MAX_TABLE_MB" \
+                  || echo "::warning::Export Parquet ${env} ignoré."
+              fi
+            else
+              echo "::warning::${env}.duckdb absent, doc dbt et données ${env} ignorées."
+            fi
+
+            # 5. Dashboards dbt Charts : un seul board = page d'accueil, sinon liste
+            archive="real_estate_analysis/_downloads/charts-${env}.tar.gz"
+            if [ -f "$archive" ]; then
+              mkdir -p "$out/charts"
+              tar -xzf "$archive" -C "$out/charts"
+              if [ ! -f "$out/charts/index.html" ]; then
+                boards=("$out"/charts/*.html)
+                if [ "${#boards[@]}" -eq 1 ] && [ -e "${boards[0]}" ]; then
+                  cp "${boards[0]}" "$out/charts/index.html"
+                else
+                  {
+                    echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+                    echo "<title>Dashboards (${env})</title>"
+                    echo '<style>body{font-family:system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem}a{display:block;padding:.8rem 1rem;margin:.5rem 0;border:1px solid #ccc;border-radius:.4rem;text-decoration:none;color:inherit}a:hover{border-color:#3f51b5}</style>'
+                    echo "<h1>Dashboards (${env})</h1>"
+                    for f in "${boards[@]}"; do
+                      [ -e "$f" ] || continue
+                      name=$(basename "$f" .html)
+                      echo "<a href=\"${name}.html\">${name}</a>"
+                    done
+                  } > "$out/charts/index.html"
+                fi
+              fi
+            fi
+          done
+          rm -rf docs_build
+
+          # Page d'accueil : choix de l'environnement
+          cat > site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="fr">
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>Projet fil rouge</title>
+          <style>
+            body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
+            a { display: block; padding: 1rem; margin: .75rem 0; border: 1px solid #ccc; border-radius: .5rem; text-decoration: none; color: inherit; }
+            a:hover { border-color: #3f51b5; }
+          </style>
+          <h1>Projet fil rouge</h1>
+          <a href="prod/"><strong>Production</strong><br>Versions publiées</a>
+          <a href="preprod/"><strong>Preprod</strong><br>Branche <code>main</code></a>
+          </html>
+          HTML
+
+          size_mb=$(du -sm site | cut -f1)
+          echo "Taille du site : ${size_mb} Mo"
+          if [ "$size_mb" -gt 900 ]; then
+            echo "::warning::Site de ${size_mb} Mo, proche de la limite GitHub Pages (1 Go)."
+          fi
+
+      - uses: actions/configure-pages@v5
+        if: github.event.repository.private == false
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event.repository.private == false
+        with:
+          path: site
+
+  deploy-pages:
+    name: Deploy to GitHub Pages
+    needs: build
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

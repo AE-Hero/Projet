@@ -66,79 +66,17 @@ jobs:
               --dir real_estate_analysis/_downloads --clobber || true
           done
 
-      # Un site complet par environnement : site/prod/ et site/preprod/
+      # Un site complet par environnement (site/prod/ et site/preprod/) :
+      # pages MkDocs, doc dbt, données Parquet de l'explorateur, dashboards.
+      # La logique est dans .github/scripts/build_site.py
       - name: Build one site per environment
+        env:
+          DBT_PROFILES_DIR: .
         run: |
-          mkdir -p site
-          (cd real_estate_analysis && dbt deps)
-
-          for env in prod preprod; do
-            other=preprod
-            [ "$env" = preprod ] && other=prod
-            out="site/${env}"
-
-            # 1. Copie des pages avec le nom de l'environnement et du repo
-            rm -rf docs_build
-            cp -r docs docs_build
-            grep -rl "__ENV__\|__OTHER_ENV__\|__REPO__" docs_build | xargs -r sed -i \
-              "s#__ENV__#${env}#g; s#__OTHER_ENV__#${other}#g; s#__REPO__#${GITHUB_REPOSITORY}#g"
-
-            # 2. Site MkDocs de l'environnement
-            DOCS_DIR=docs_build SITE_NAME="Projet fil rouge - Real Estate Analysis (${env})" \
-              mkdocs build -d "$out"
-
-            if [ -f "real_estate_analysis/${env}.duckdb" ]; then
-              # 3. Doc dbt générée depuis la base de l'environnement
-              (cd real_estate_analysis && dbt docs generate --target "$env")
-              mkdir -p "$out/dbt-docs"
-              cp real_estate_analysis/target/index.html \
-                 real_estate_analysis/target/manifest.json \
-                 real_estate_analysis/target/catalog.json "$out/dbt-docs/"
-
-              # 4. Parquet pour l'explorateur (facultatif)
-              if [ -f .github/scripts/export_parquet.py ]; then
-                python .github/scripts/export_parquet.py --env "$env" \
-                  --db "real_estate_analysis/${env}.duckdb" --out "$out/data" \
-                  --schemas "$EXPORT_SCHEMAS" \
-                  --max-table-mb "$EXPORT_MAX_TABLE_MB" \
-                  || echo "::warning::Export Parquet ${env} ignoré."
-              fi
-            else
-              echo "::warning::${env}.duckdb absent, doc dbt et données ${env} ignorées."
-            fi
-
-            # 5. Dashboards dbt Charts
-            archive="real_estate_analysis/_downloads/charts-${env}.tar.gz"
-            if [ -f "$archive" ]; then
-              mkdir -p "$out/charts"
-              tar -xzf "$archive" -C "$out/charts"
-            fi
-          done
-          rm -rf docs_build
-
-          # Page d'accueil : choix de l'environnement
-          cat > site/index.html <<'HTML'
-          <!doctype html>
-          <html lang="fr">
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1">
-          <title>Projet fil rouge</title>
-          <style>
-            body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
-            a { display: block; padding: 1rem; margin: .75rem 0; border: 1px solid #ccc; border-radius: .5rem; text-decoration: none; color: inherit; }
-            a:hover { border-color: #3f51b5; }
-          </style>
-          <h1>Projet fil rouge</h1>
-          <a href="prod/"><strong>Production</strong><br>Versions publiées</a>
-          <a href="preprod/"><strong>Preprod</strong><br>Branche <code>main</code></a>
-          </html>
-          HTML
-
-          size_mb=$(du -sm site | cut -f1)
-          echo "Taille du site : ${size_mb} Mo"
-          if [ "$size_mb" -gt 900 ]; then
-            echo "::warning::Site de ${size_mb} Mo, proche de la limite GitHub Pages (1 Go)."
-          fi
+          python .github/scripts/cd-build-site.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --schemas "$EXPORT_SCHEMAS" \
+            --max-table-mb "$EXPORT_MAX_TABLE_MB"
 
       - uses: actions/configure-pages@v5
         if: github.event.repository.private == false

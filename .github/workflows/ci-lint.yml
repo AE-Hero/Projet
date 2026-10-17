@@ -67,10 +67,10 @@ jobs:
       - name: Résumé du lint
         if: always()
         run: |
-          python ../.github/scripts/format-ci-lint.py --path lint.json --err lint.err > summary.md
+          python ../.github/scripts/ci-format-lint.py --path lint.json --err lint.err > summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
           # Annotations sur les lignes concernées (onglet "Files changed")
-          python ../.github/scripts/format-ci-lint.py --path lint.json --annotations \
+          python ../.github/scripts/ci-format-lint.py --path lint.json --annotations \
             --prefix real_estate_analysis/
 
       # Commentaire "sticky" : un commentaire distinct par header, mis à jour à chaque push.

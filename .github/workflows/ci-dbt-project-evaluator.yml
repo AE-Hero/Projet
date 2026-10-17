@@ -66,7 +66,7 @@ jobs:
       - name: Résumé de l'évaluation
         if: always()
         run: |
-          python ../.github/scripts/format-ci-dbt-project-evaluator.py --db ci.duckdb > summary.md
+          python ../.github/scripts/ci-format-dbt-project-evaluator.py --db ci.duckdb > summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commentaire sur la PR

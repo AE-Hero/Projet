@@ -69,7 +69,7 @@ jobs:
       - name: Résumé du build
         if: always()
         run: |
-          python ../.github/scripts/format-ci-dbt-build.py > summary.md
+          python ../.github/scripts/ci-format-dbt-build.py > summary.md
           cat summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commentaire sur la PR
