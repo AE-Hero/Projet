@@ -1,4 +1,4 @@
-name: Docs site (MkDocs + dbt docs)
+name: dbt CD deploy site
 
 on:
   push:
@@ -7,12 +7,15 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "docs-requirements.txt"
-      - ".github/workflows/docs.yml"
+      - "requirements.txt"
+      - ".github/workflows/cd-deploy-site.yml"
+      - ".github/scripts/export_parquet.py"
 
   # Reconstruit le site après chaque déploiement preprod / prod
   workflow_run:
     workflows: ["dbt CD deploy preprod", "dbt CD deploy prod"]
     types: [completed]
+
   workflow_dispatch:
 
 concurrency:
@@ -27,6 +30,8 @@ permissions:
 env:
   DBT_PROFILES_DIR: .
   DBT_TARGET: prod
+  EXPORT_SCHEMAS: ""          # vide = tous les schémas (hors raw*, _*)
+  EXPORT_MAX_TABLE_MB: "100"
 
 jobs:
   build:
@@ -51,17 +56,17 @@ jobs:
           pip install -r docs-requirements.txt
           pip install -r requirements.txt
 
-      # Récupère la base prod (pour générer le catalogue dbt) et les boards rendus.
-      # Les bases ne sont PAS copiées dans le site : il ne contient que des liens
-      # vers les releases, ce qui évite la limite de taille de GitHub Pages.
+      # Bases et boards publiés par les CD preprod / prod.
       # Absents au tout premier run : on continue sans.
-      - name: Download published DB and boards
+      - name: Download published DBs and boards
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p real_estate_analysis/_downloads
           gh release download db-prod --pattern "prod.duckdb" \
             --dir real_estate_analysis --clobber || echo "Pas de base prod publiée."
+          gh release download db-preprod --pattern "preprod.duckdb" \
+            --dir real_estate_analysis/_downloads --clobber || echo "Pas de base preprod publiée."
           gh release download db-prod --pattern "charts-prod.tar.gz" \
             --dir real_estate_analysis/_downloads --clobber || true
           gh release download db-preprod --pattern "charts-preprod.tar.gz" \
@@ -96,6 +101,31 @@ jobs:
               tar -xzf "$archive" -C "site/charts/${env}"
             fi
           done
+
+      # Optionnel : Parquet pour l'explorateur web (DuckDB-WASM).
+      # Ne bloque jamais le déploiement du site.
+      - name: Export Parquet for browser explorer
+        continue-on-error: true
+        run: |
+          if [ ! -f .github/scripts/export_parquet.py ]; then
+            echo "export_parquet.py absent, explorateur ignoré."
+            exit 0
+          fi
+          if [ -f real_estate_analysis/prod.duckdb ]; then
+            python .github/scripts/export_parquet.py --env prod \
+              --db real_estate_analysis/prod.duckdb --out site/data \
+              --schemas "$EXPORT_SCHEMAS" --max-table-mb "$EXPORT_MAX_TABLE_MB"
+          fi
+          if [ -f real_estate_analysis/_downloads/preprod.duckdb ]; then
+            python .github/scripts/export_parquet.py --env preprod \
+              --db real_estate_analysis/_downloads/preprod.duckdb --out site/data \
+              --schemas "$EXPORT_SCHEMAS" --max-table-mb "$EXPORT_MAX_TABLE_MB"
+          fi
+          size_mb=$(du -sm site | cut -f1)
+          echo "Taille du site : ${size_mb} Mo"
+          if [ "$size_mb" -gt 900 ]; then
+            echo "::warning::Site de ${size_mb} Mo, proche de la limite GitHub Pages (1 Go)."
+          fi
 
       - uses: actions/configure-pages@v5
 
