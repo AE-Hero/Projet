@@ -189,3 +189,27 @@
 .dbx-page .md-sidebar--secondary {
   display: none;
 }
+
+.dbx-page .md-main__inner {
+  margin-top: 1.2rem;
+}
+.dbx-page .md-content__inner {
+  margin: 0 1.2rem;
+  padding-top: 0;
+}
+.dbx-page .md-content__inner::before {
+  display: none;
+}
+
+/* Pied de page */
+.md-copyright {
+  width: auto;
+  font-size: 0.7rem;
+}
+.md-copyright a {
+  color: #fff;
+  font-weight: 600;
+}
+.md-footer-meta {
+  background-color: var(--brand-navy);
+}

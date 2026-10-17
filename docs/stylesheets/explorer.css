@@ -17,15 +17,18 @@
   --dbx-border: var(--border);
   --dbx-muted: var(--muted-foreground);
   --dbx-bg-alt: var(--muted);
-  --dbx-editor-h: minmax(100px, 1fr);
+  --dbx-editor-h: minmax(110px, 0.7fr);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   /* tables · onglets · barre d'outils · éditeur · séparateur · résultats */
-  grid-template-rows: auto auto auto var(--dbx-editor-h) 6px minmax(140px, 1.25fr);
+  grid-template-rows: auto auto auto var(--dbx-editor-h) 6px minmax(180px, 1.6fr);
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  min-height: 440px;
+  /* occupe toute la hauteur de l'écran sous l'en-tête ; la doc se lit en dessous */
+  height: calc(100vh - 9.5rem);
+  height: calc(100dvh - 9.5rem);
+  min-height: 520px;
   border: 1px solid var(--dbx-border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -50,7 +53,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0.7rem 0.3rem;
+  padding: 0.8rem 1rem 0.5rem;
 }
 .dbx-count {
   color: var(--dbx-muted);
@@ -69,9 +72,9 @@
 .dbx-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  max-height: 3.6rem;
-  padding: 0.2rem 0.7rem 0.55rem;
+  gap: 0.5rem;
+  max-height: 4.6rem;
+  padding: 0.3rem 1rem 0.9rem;
   overflow-y: auto;
 }
 .dbx-chip {
@@ -79,7 +82,7 @@
   display: inline-flex;
   align-items: baseline;
   gap: 0.4rem;
-  padding: 0.25rem 0.6rem;
+  padding: 0.35rem 0.85rem;
   background: var(--background);
   border: 1px solid var(--dbx-border);
   border-radius: 1rem;
@@ -106,8 +109,8 @@
 }
 
 .dbx-panel {
-  max-height: 7.5rem;
-  padding: 0.5rem 0.7rem 0.6rem;
+  max-height: 8.5rem;
+  padding: 0.8rem 1rem 0.9rem;
   overflow: auto;
   background: var(--background);
   border-top: 1px solid var(--dbx-border);
@@ -119,7 +122,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.45rem;
+  margin-bottom: 0.7rem;
 }
 .dbx-panel-meta {
   color: var(--dbx-muted);
@@ -127,13 +130,13 @@
 .dbx-cols {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 .dbx-col {
   display: inline-flex;
   align-items: baseline;
   gap: 0.35rem;
-  padding: 0.12rem 0.5rem;
+  padding: 0.2rem 0.65rem;
   background: var(--dbx-bg-alt);
   border: 1px solid transparent;
   border-radius: 0.2rem;
@@ -151,7 +154,7 @@
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  padding: 0.35rem 0.5rem 0;
+  padding: 0.6rem 0.8rem 0;
   overflow-x: auto;
   border-bottom: 1px solid var(--dbx-border);
   background: var(--dbx-bg-alt);
@@ -172,7 +175,7 @@
   padding-bottom: 1px;
 }
 .dbx-tab-label {
-  padding: 0.35rem 0.3rem 0.35rem 0.7rem;
+  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
   background: none;
   border: 0;
 }
@@ -199,8 +202,8 @@
 .dbx-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.7rem;
+  padding: 0.65rem 0.9rem;
   border-bottom: 1px solid var(--dbx-border);
 }
 .dbx-spacer {
@@ -211,10 +214,10 @@
   font-size: 0.65rem;
 }
 .dbx-btn {
-  padding: 0.3rem 0.7rem;
+  padding: 0.4rem 0.9rem;
   background: var(--background);
   border: 1px solid var(--dbx-border);
-  border-radius: 0.2rem;
+  border-radius: 0.3rem;
 }
 .dbx-btn-small {
   padding: 0.15rem 0.5rem;
@@ -241,10 +244,10 @@
   width: 100%;
   height: 100%;
   box-sizing: border-box;
-  padding: 0.7rem 0.8rem;
+  padding: 1rem 1.2rem;
   font-family: var(--font-mono, monospace);
   font-size: 0.8rem;
-  line-height: 1.55;
+  line-height: 1.65;
   tab-size: 2;
   color: var(--foreground);
   background: var(--background);
@@ -272,7 +275,7 @@
   min-height: 0;
 }
 .dbx-result-bar {
-  padding: 0.35rem 0.8rem;
+  padding: 0.6rem 1.1rem;
   color: var(--dbx-muted);
   border-bottom: 1px solid var(--dbx-border);
 }
@@ -292,7 +295,7 @@
 
 .dbx-error {
   margin: 0;
-  padding: 0.8rem;
+  padding: 1rem 1.2rem;
   white-space: pre-wrap;
   color: var(--destructive);
   font-family: var(--font-mono, monospace);
@@ -303,12 +306,12 @@
   min-width: 100%;
   margin: 0;
   border-collapse: collapse;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   white-space: nowrap;
 }
 .dbx-grid th,
 .dbx-grid td {
-  padding: 0.3rem 0.7rem;
+  padding: 0.5rem 1.1rem;
   text-align: left;
   border-bottom: 1px solid var(--dbx-border);
 }
