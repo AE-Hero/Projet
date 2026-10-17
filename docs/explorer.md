@@ -1,33 +1,24 @@
+---
+hide:
+  - navigation
+  - toc
+---
+
 # Explorateur SQL
 
-Interrogez directement la base **depuis votre navigateur**, sans rien installer :
-DuckDB s'exécute sur votre machine (WebAssembly) et lit les données publiées
-avec ce site.
-
-<div id="explorer" data-base="data/">
-<p id="dbx-status" class="dbx-status">Chargement…</p>
-<div class="dbx-layout">
-<aside>
-<h4>Tables</h4>
-<div id="dbx-tables"></div>
-</aside>
-<section>
-<textarea id="dbx-sql" spellcheck="false" rows="8"></textarea>
-<div class="dbx-actions">
-<button id="dbx-run" class="md-button md-button--primary" disabled>Exécuter (Ctrl+Entrée)</button>
-<span id="dbx-info"></span>
-</div>
-<div id="dbx-result" class="dbx-result"></div>
-</section>
-</div>
-</div>
+<div id="explorer" data-base="data/"></div>
 
 ## Comment ça marche
 
-- Les tables de l'environnement **__ENV__** sont disponibles sous `__ENV__.<table>`.
-  Cliquez sur une table pour insérer une requête d'exemple.
+- DuckDB s'exécute **dans votre navigateur** (WebAssembly) : rien à installer.
+- Le panneau de gauche liste les tables de l'environnement **__ENV__**, sous `__ENV__.<table>`.
+  Cliquez sur ▸ pour voir les colonnes, sur un nom pour l'insérer dans la requête,
+  sur ▶ pour un aperçu des 100 premières lignes.
+- Plusieurs onglets de requêtes sont disponibles (double-clic pour renommer). Ils sont
+  conservés dans votre navigateur.
+- Sélectionnez une partie de la requête puis Ctrl+Entrée pour n'exécuter que la sélection.
 - Les fichiers sont lus à la demande : seules les parties nécessaires à votre requête sont téléchargées.
-- Les résultats sont limités à 1 000 lignes à l'écran. Ajoutez des `LIMIT` et des agrégats.
+- Les résultats sont limités à 1 000 lignes à l'écran. Le bouton **CSV** exporte le résultat complet.
 
 !!! note "Échantillons"
     Les tables trop volumineuses sont publiées sous forme d'**échantillon aléatoire**

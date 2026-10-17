@@ -1,89 +1,345 @@
-.dbx-status {
-  margin: 0 0 1rem;
-  padding: 0.5rem 0.75rem;
-  border-left: 3px solid var(--md-default-fg-color--lighter);
-  background: var(--md-code-bg-color);
+/* Explorateur SQL : pleine largeur, tables en bandeau, éditeur, puis résultats */
+
+.dbx-page .md-grid {
+  max-width: none;
 }
-.dbx-status[data-kind="ok"] {
-  border-left-color: #2e7d32;
+.dbx-page .md-content__inner {
+  margin: 0 0.8rem;
+  padding-top: 0.6rem;
 }
-.dbx-status[data-kind="error"] {
-  border-left-color: #c62828;
+.dbx-page .md-content__inner::before {
+  display: none;
+}
+.dbx-page .md-typeset h1 {
+  display: none;
 }
 
-.dbx-layout {
+.dbx {
+  --dbx-border: var(--md-default-fg-color--lightest);
+  --dbx-muted: var(--md-default-fg-color--light);
+  --dbx-bg-alt: var(--md-code-bg-color);
+  --dbx-editor-h: minmax(100px, 1fr);
   display: grid;
-  grid-template-columns: minmax(180px, 240px) 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-@media (max-width: 700px) {
-  .dbx-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.dbx-layout aside h4 {
-  margin: 0 0 0.5rem;
-}
-
-.dbx-table {
-  display: block;
+  grid-template-columns: minmax(0, 1fr);
+  /* tables · onglets · barre d'outils · éditeur · séparateur · résultats */
+  grid-template-rows: auto auto auto var(--dbx-editor-h) 6px minmax(140px, 1.25fr);
   width: 100%;
-  margin-bottom: 0.25rem;
-  padding: 0.3rem 0.5rem;
-  text-align: left;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 440px;
+  border: 1px solid var(--dbx-border);
+  border-radius: 0.3rem;
+  overflow: hidden;
+  font-size: 0.72rem;
+  background: var(--md-default-bg-color);
+}
+.dbx > * {
+  min-width: 0;
+}
+.dbx button {
   font: inherit;
-  font-size: 0.75rem;
+  color: inherit;
   cursor: pointer;
-  color: var(--md-default-fg-color);
-  background: var(--md-code-bg-color);
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: 0.2rem;
-}
-.dbx-table:hover {
-  border-color: var(--md-accent-fg-color);
-}
-.dbx-table small {
-  display: block;
-  opacity: 0.7;
 }
 
-#dbx-sql {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.6rem;
-  font-family: var(--md-code-font-family, monospace);
-  font-size: 0.8rem;
-  color: var(--md-code-fg-color);
-  background: var(--md-code-bg-color);
-  border: 1px solid var(--md-default-fg-color--lightest);
-  border-radius: 0.2rem;
-  resize: vertical;
+/* ---------- bandeau de tables ---------- */
+.dbx-tables {
+  border-bottom: 1px solid var(--dbx-border);
+  background: var(--dbx-bg-alt);
 }
-
-.dbx-actions {
+.dbx-tables-head {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  margin: 0.5rem 0;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem 0.3rem;
 }
-#dbx-info {
-  font-size: 0.75rem;
+.dbx-count {
+  color: var(--dbx-muted);
 }
-#dbx-info[data-kind="error"] {
-  color: #c62828;
+.dbx-search {
+  flex: 0 1 18rem;
+  margin-left: auto;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  color: var(--md-default-fg-color);
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--dbx-border);
+  border-radius: 0.2rem;
 }
 
-.dbx-result {
-  max-height: 480px;
+.dbx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  max-height: 3.6rem;
+  padding: 0.2rem 0.7rem 0.55rem;
+  overflow-y: auto;
+}
+.dbx-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--dbx-border);
+  border-radius: 1rem;
+}
+.dbx-chip[hidden] {
+  display: none;
+}
+.dbx-chip small {
+  color: var(--dbx-muted);
+  font-size: 0.62rem;
+}
+.dbx-chip:hover {
+  border-color: var(--md-accent-fg-color);
+}
+.dbx-chip.is-active {
+  color: var(--md-primary-bg-color);
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+.dbx-chip.is-active small {
+  color: inherit;
+  opacity: 0.8;
+}
+
+.dbx-panel {
+  max-height: 6.5rem;
+  padding: 0.5rem 0.7rem 0.6rem;
+  overflow: auto;
+  background: var(--md-default-bg-color);
+  border-top: 1px solid var(--dbx-border);
+}
+.dbx-panel[hidden] {
+  display: none;
+}
+.dbx-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+.dbx-panel-meta {
+  color: var(--dbx-muted);
+}
+.dbx-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.dbx-col {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.12rem 0.5rem;
+  background: var(--dbx-bg-alt);
+  border: 1px solid transparent;
+  border-radius: 0.2rem;
+}
+.dbx-col:hover {
+  border-color: var(--md-accent-fg-color);
+}
+.dbx-col small {
+  color: var(--dbx-muted);
+  font-size: 0.6rem;
+}
+
+/* ---------- onglets et barre d'outils ---------- */
+.dbx-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0.35rem 0.5rem 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--dbx-border);
+  background: var(--dbx-bg-alt);
+}
+.dbx-tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.25rem 0.25rem 0 0;
+}
+.dbx-tab.is-active {
+  background: var(--md-default-bg-color);
+  border-color: var(--dbx-border);
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+}
+.dbx-tab-label {
+  padding: 0.35rem 0.3rem 0.35rem 0.7rem;
+  background: none;
+  border: 0;
+}
+.dbx-tab:not(.is-active) .dbx-tab-label {
+  color: var(--dbx-muted);
+}
+.dbx-tab-close,
+.dbx-tab-add {
+  padding: 0.2rem 0.45rem;
+  color: var(--dbx-muted);
+  background: none;
+  border: 0;
+  border-radius: 0.2rem;
+}
+.dbx-tab-close:hover,
+.dbx-tab-add:hover {
+  color: var(--md-accent-fg-color);
+}
+.dbx-tab-add {
+  align-self: center;
+  font-size: 0.95rem;
+}
+
+.dbx-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--dbx-border);
+}
+.dbx-spacer {
+  flex: 1;
+}
+.dbx-hint {
+  color: var(--dbx-muted);
+  font-size: 0.65rem;
+}
+.dbx-btn {
+  padding: 0.3rem 0.7rem;
+  background: var(--md-default-bg-color);
+  border: 1px solid var(--dbx-border);
+  border-radius: 0.2rem;
+}
+.dbx-btn-small {
+  padding: 0.15rem 0.5rem;
+}
+.dbx-btn:hover:not(:disabled) {
+  border-color: var(--md-accent-fg-color);
+}
+.dbx-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.dbx-btn-primary {
+  color: var(--md-primary-bg-color) !important;
+  background: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+
+/* ---------- éditeur ---------- */
+.dbx-editor {
+  min-height: 0;
+}
+.dbx-editor textarea {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 0.8rem;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.8rem;
+  line-height: 1.55;
+  tab-size: 2;
+  color: var(--md-code-fg-color);
+  background: var(--md-default-bg-color);
+  border: 0;
+  outline: none;
+  resize: none;
+}
+
+.dbx-split {
+  cursor: row-resize;
+  background: var(--dbx-bg-alt);
+  border-top: 1px solid var(--dbx-border);
+  border-bottom: 1px solid var(--dbx-border);
+  touch-action: none;
+}
+.dbx-split:hover {
+  background: var(--md-accent-fg-color--transparent);
+}
+
+/* ---------- résultats : le tableau défile dans sa zone, jamais dans la page ---------- */
+.dbx-results {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.dbx-result-bar {
+  padding: 0.35rem 0.8rem;
+  color: var(--dbx-muted);
+  border-bottom: 1px solid var(--dbx-border);
+}
+.dbx-result-bar[data-kind="ok"] {
+  color: var(--md-default-fg-color);
+}
+.dbx-result-bar[data-kind="error"] {
+  color: #c62828;
+  font-weight: 700;
+}
+.dbx-result-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
 }
-.dbx-result table {
-  font-size: 0.7rem;
+
+.dbx-error {
+  margin: 0;
+  padding: 0.8rem;
+  white-space: pre-wrap;
+  color: #c62828;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.72rem;
+}
+
+.dbx-grid {
+  min-width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.72rem;
   white-space: nowrap;
 }
-.dbx-null {
-  opacity: 0.5;
+.dbx-grid th,
+.dbx-grid td {
+  padding: 0.3rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--dbx-border);
+}
+.dbx-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-weight: 700;
+  background: var(--dbx-bg-alt);
+}
+.dbx-grid tbody tr:hover {
+  background: var(--md-accent-fg-color--transparent);
+}
+.dbx-grid .dbx-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dbx-grid .dbx-rownum {
+  width: 1%;
+  color: var(--dbx-muted);
+  text-align: right;
+  background: var(--dbx-bg-alt);
+}
+.dbx-grid td.dbx-null {
+  color: var(--dbx-muted);
   font-style: italic;
+}
+
+@media (max-width: 700px) {
+  .dbx-hint {
+    display: none;
+  }
+  .dbx-search {
+    flex: 1;
+  }
 }

@@ -74,21 +74,24 @@ jobs:
         continue-on-error: true
         run: pip install dbt-charts
 
-      - name: Validate & render dashboard
+      - name: Validate & render boards
         id: charts_render
-        if: steps.charts_install.outcome == 'success'
         continue-on-error: true
         run: |
           if [ ! -d charts ]; then
-            echo "Pas de dossier charts/, étape ignorée."
+            echo "::warning::Pas de dossier charts/ : aucun dashboard à rendre."
             exit 0
           fi
+          dct --version
           dct validate
+          rm -rf renders charts_out
           mkdir -p charts_out
           for board in charts/*.yml charts/*.yaml; do
             [ -e "$board" ] || continue
-            dct render "$board" --format html > "charts_out/$(basename "${board%.*}").html"
+            dct render "$board" --format html
           done
+          cp renders/*.html charts_out/ 2>/dev/null || echo "::warning::Aucun fichier HTML dans renders/"
+          ls -la charts_out
 
       - name: Publish rendered boards as release asset
         if: steps.charts_render.outcome == 'success'
