@@ -1,0 +1,56 @@
+name: CI - dbt-project-evaluator
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "real_estate_analysis/**"
+      - ".github/workflows/ci-lint.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: dbt-ci-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DBT_PROFILES_DIR: .
+  DBT_TARGET: ci
+
+defaults:
+  run:
+    working-directory: real_estate_analysis
+
+jobs:
+  lint:
+    name: SQL lint (SQLFluff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: real_estate_analysis/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: Lint changed SQL files
+        run: |
+          git diff -z --name-only --relative --diff-filter=ACMR \
+            origin/${{ github.base_ref }}...HEAD -- 'models/*.sql' 'tests/*.sql' > changed.txt
+          if [ ! -s changed.txt ]; then
+            echo "Aucun fichier SQL modifié, lint ignoré."
+            exit 0
+          fi
+          xargs -0 sqlfluff lint --format github-annotation-native < changed.txt

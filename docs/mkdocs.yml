@@ -1,0 +1,28 @@
+site_name: Projet fil rouge - Real Estate Analysis
+site_description: Documentation du projet fil rouge AE Hero (dbt, DuckDB, DVF)
+site_url: ""
+
+docs_dir: docs
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+
+nav:
+  - Accueil: index.md
+  - Le projet: projet.md
+  - Documentation dbt: dbt-docs.md
+  - Requêter la preprod: requeter-preprod.md
+  - Requêter la prod: requeter-prod.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
