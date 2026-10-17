@@ -21,3 +21,5 @@ docs_build/
 logs/
 *.duckdb
 real_estate_analysis/_downloads/
+renders/
+__pycache__/

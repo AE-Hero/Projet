@@ -1,0 +1,41 @@
+title: "This is the parent board"
+width: 600
+
+rows:
+  - text: |
+      With just **some text** on it. It's Markdown, so we can put things like
+      [links](https://example.com/), *emphasis*, and lists:
+
+      - keep prose close to the data
+      - call out important details
+      - add structure without adding a chart
+    style:
+      border:
+        width: 1
+        color: "#cbd5e1"
+
+  - title: "Nested board"
+    text: |
+      This is a nested board with its own border.
+    style:
+      border:
+        width: 1
+        color: "#cbd5e1"
+
+  - title: "Two nested boards"
+    cols:
+      - text: |
+          And here's another with just text, no title.
+
+          - **Bold text** works inside nested boards.
+          - *Italic text* does too.
+          - Bullets make short notes easy to scan.
+        style:
+          border:
+            width: 1
+            color: "#cbd5e1"
+      - title: "And another with just a title"
+        style:
+          border:
+            width: 1
+            color: "#cbd5e1"
