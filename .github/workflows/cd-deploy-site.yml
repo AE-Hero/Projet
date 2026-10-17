@@ -13,7 +13,7 @@ on:
 
   # Reconstruit le site après chaque déploiement preprod / prod
   workflow_run:
-    workflows: ["dbt CD deploy preprod", "dbt CD deploy prod"]
+    workflows: ["CD - Deploy preprod db & dashboards", "⚙️ CD - Deploy preprod db & dashboards"]
     types: [completed]
 
   workflow_dispatch:
@@ -27,7 +27,7 @@ permissions:
 
 env:
   DBT_PROFILES_DIR: .
-  EXPORT_SCHEMAS: ""          # vide = tous les schémas (hors raw*, _*)
+  EXPORT_SCHEMAS: ""
   EXPORT_MAX_TABLE_MB: "100"
 
 jobs:
