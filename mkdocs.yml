@@ -17,8 +17,8 @@ nav:
   - Accueil: index.md
   - Le projet: projet.md
   - Documentation dbt: dbt-docs.md
-  - Requêter la preprod: requeter-preprod.md
-  - Requêter la prod: requeter-prod.md
+  - Requêter la preprod: request-preprod.md
+  - Requêter la prod: request-prod.md
 
 markdown_extensions:
   - admonition
