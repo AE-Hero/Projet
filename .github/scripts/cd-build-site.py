@@ -266,7 +266,7 @@ def main() -> int:
     parser.add_argument("--docs", type=Path, default=Path("docs"))
     parser.add_argument("--project", type=Path, default=Path("real_estate_analysis"))
     parser.add_argument("--downloads", type=Path, default=Path("real_estate_analysis/_downloads"))
-    parser.add_argument("--export-script", type=Path, default=Path(".github/scripts/ci-export-parquet.py"))
+    parser.add_argument("--export-script", type=Path, default=Path(".github/scripts/cd-export-parquet.py"))
     parser.add_argument("--schemas", default="", help="Schémas à exporter (défaut : tous)")
     parser.add_argument("--max-table-mb", default="100")
     args = parser.parse_args()
