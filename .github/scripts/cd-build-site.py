@@ -67,9 +67,10 @@ def build_mkdocs(docs_dir: Path, out: Path, env: str) -> None:
     environment = {
         **os.environ,
         "DOCS_DIR": str(docs_dir),
+        "NO_MKDOCS_2_WARNING": "true",  # bandeau d'avertissement de Material sur MkDocs 2.0
         "SITE_NAME": f"Projet fil rouge - Real Estate Analysis ({env})",
     }
-    run([sys.executable, "-m", "mkdocs", "build", "-q", "-d", str(out)], env=environment)
+    run([sys.executable, "-m", "mkdocs", "build", "-d", str(out)], env=environment)
 
 
 # ---------------------------------------------------------------- 3 : doc dbt
@@ -111,7 +112,7 @@ def export_parquet(script: Path, db: Path, out: Path, env: str, schemas: str, ma
 LIST_STYLE = (
     "body{font-family:system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem}"
     "a{display:block;padding:.8rem 1rem;margin:.5rem 0;border:1px solid #ccc;"
-    "border-radius:.4rem;text-decoration:none;color:inherit}a:hover{border-color:#3f51b5}"
+    "border-radius:.4rem;text-decoration:none;color:inherit}a:hover{border-color:#b04267}"
 )
 
 

@@ -1,0 +1,191 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&display=swap");
+
+/* Couleurs de la marque : #232a3a (marine) · #672863 (violet) · #b04267 (rose) · #e6725d (corail) */
+:root {
+  --brand-navy: #232a3a;
+  --brand-purple: #672863;
+  --brand-rose: #b04267;
+  --brand-coral: #e6725d;
+  --brand-gradient: linear-gradient(180deg, #672863 0%, #b04267 55%, #e6725d 100%);
+}
+:root,
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #232a3a;
+  --md-primary-fg-color--light: #2f3850;
+  --md-primary-fg-color--dark: #1a202d;
+  --md-primary-bg-color: #ffffff;
+  --md-primary-bg-color--light: #ffffffb3;
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: #ffffffb3;
+}
+[data-md-color-scheme="default"] {
+  /* le rose reste lisible sur fond blanc, le corail est réservé aux aplats */
+  --md-accent-fg-color: #b04267;
+  --md-accent-fg-color--transparent: #b042671a;
+  --md-typeset-a-color: #b04267;
+}
+[data-md-color-scheme="slate"] {
+  --md-accent-fg-color: #e6725d;
+  --md-accent-fg-color--transparent: #e6725d1f;
+  --md-typeset-a-color: #e6725d;
+}
+
+/* Barre du haut : marine, avec un filet dégradé violet · rose · corail */
+.md-header,
+.md-tabs {
+  background-color: var(--brand-navy);
+}
+.md-tabs {
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, #672863, #b04267, #e6725d) 1;
+}
+
+/* Titres plus affirmés */
+.md-typeset h1,
+.md-typeset h2 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.md-typeset h2 {
+  margin-top: 2.2em;
+}
+
+/* Colonne de gauche : inutile avec des liens dans la barre du haut */
+.md-sidebar--primary {
+  display: none;
+}
+
+/* ---------- accueil : bandeau ---------- */
+.hero {
+  margin: 0 0 2rem;
+  padding: 2.6rem 2.2rem 2rem;
+  color: #fff;
+  border-radius: 0.8rem;
+  background: var(--brand-gradient);
+}
+.hero h1,
+.md-typeset .hero h1 {
+  margin: 0 0 0.6rem;
+  font-family: "Montserrat", var(--md-text-font-family), sans-serif;
+  font-size: 2.6em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.hero p {
+  max-width: 40rem;
+  font-size: 1.05em;
+  color: #fff;
+}
+.hero a:not(.md-button) {
+  color: #fff;
+  text-decoration: underline;
+}
+.hero .md-button {
+  margin: 0.4rem 0.5rem 0.2rem 0;
+  color: #fff;
+  border-color: #ffffffb3;
+}
+.hero .md-button:hover {
+  color: var(--brand-purple);
+  background: #fff;
+  border-color: #fff;
+}
+.hero .md-button--primary,
+[data-md-color-scheme="slate"] .hero .md-button--primary {
+  color: var(--brand-purple);
+  background: #fff;
+  border-color: #fff;
+}
+.hero .md-button--primary:hover {
+  color: var(--brand-purple);
+  background: #ffffffe6;
+}
+.env-line {
+  display: block;
+  margin-top: 1.4rem;
+  font-size: 0.8em;
+  color: #ffffffd9;
+}
+.env-badge {
+  display: inline-block;
+  padding: 0 0.55em;
+  font-weight: 700;
+  color: #fff;
+  border: 1px solid #fff;
+  border-radius: 1em;
+}
+
+/* ---------- accueil : schéma du flux ---------- */
+.flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+  margin: 0 0 2rem;
+}
+.flow .step {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.8rem 1rem;
+  text-align: center;
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.6rem;
+}
+.flow .step strong {
+  font-size: 1.05em;
+}
+.flow .step span {
+  color: var(--md-default-fg-color--light);
+  font-size: 0.75em;
+}
+.flow .arrow {
+  align-self: center;
+  color: var(--md-accent-fg-color);
+  font-size: 1.4em;
+  font-weight: 700;
+}
+@media (max-width: 700px) {
+  .flow {
+    flex-direction: column;
+  }
+  .flow .arrow {
+    transform: rotate(90deg);
+  }
+  .hero {
+    padding: 1.5rem 1.1rem 1.2rem;
+  }
+  .hero h1 {
+    font-size: 1.9em;
+  }
+}
+
+/* ---------- cartes ---------- */
+.md-typeset .grid.cards > ul > li {
+  border-radius: 0.6rem;
+}
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: 0 4px 16px var(--md-accent-fg-color--transparent);
+}
+.md-typeset .grid.cards .twemoji {
+  color: var(--md-accent-fg-color);
+}
+
+/* ---------- explorateur : pleine largeur, sans titre ni sommaire ---------- */
+.dbx-page .md-grid {
+  max-width: none;
+}
+.dbx-page .md-content__inner > h1,
+.dbx-page .md-content__inner > h1 + * + h2 {
+  margin-top: 0;
+}
+.dbx-page .md-content__inner > h1 {
+  display: none;
+}
+.dbx-page .md-sidebar--secondary {
+  display: none;
+}

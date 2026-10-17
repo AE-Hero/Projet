@@ -9,6 +9,18 @@ docs_dir: !ENV [DOCS_DIR, docs]
 use_directory_urls: false
 
 theme:
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle: {icon: material/weather-night, name: Mode sombre}
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle: {icon: material/weather-sunny, name: Mode clair}
   name: material
   language: fr
   features:
