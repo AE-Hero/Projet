@@ -17,18 +17,18 @@
   --dbx-border: var(--border);
   --dbx-muted: var(--muted-foreground);
   --dbx-bg-alt: var(--muted);
-  --dbx-editor-h: minmax(110px, 0.7fr);
+  --dbx-editor-h: 8rem;  /* hauteur de l'éditeur : se règle en tirant la barre de séparation */
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   /* tables · onglets · barre d'outils · éditeur · séparateur · résultats */
-  grid-template-rows: auto auto auto var(--dbx-editor-h) 6px minmax(180px, 1.6fr);
+  grid-template-rows: auto auto auto var(--dbx-editor-h) 6px minmax(280px, 1fr);
   width: 100%;
   min-width: 0;
   max-width: 100%;
   /* occupe toute la hauteur de l'écran sous l'en-tête ; la doc se lit en dessous */
-  height: calc(100vh - 9.5rem);
-  height: calc(100dvh - 9.5rem);
-  min-height: 520px;
+  height: max(calc(100vh - 9.5rem), 780px);
+  height: max(calc(100dvh - 9.5rem), 780px);  /* la page défile si l'écran est petit */
+  min-height: 780px;
   border: 1px solid var(--dbx-border);
   border-radius: var(--radius);
   overflow: hidden;
