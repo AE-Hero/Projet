@@ -41,6 +41,11 @@
   border-image: linear-gradient(90deg, #672863, #b04267, #e6725d) 1;
 }
 
+/* Même largeur partout : en-tête, onglets, contenu et pied de page restent alignés sur toutes les pages */
+.md-grid {
+  max-width: 76rem;
+}
+
 /* Titres plus affirmés */
 .md-typeset h1,
 .md-typeset h2 {
@@ -176,9 +181,6 @@
 }
 
 /* ---------- explorateur : pleine largeur, sans titre ni sommaire ---------- */
-.dbx-page .md-grid {
-  max-width: none;
-}
 .dbx-page .md-content__inner > h1,
 .dbx-page .md-content__inner > h1 + * + h2 {
   margin-top: 0;
@@ -215,9 +217,6 @@
 }
 
 /* ---------- page intégrée (dashboards) : large, le contenu remplit l'écran ---------- */
-.md-main:has(.embed-wrap) .md-grid {
-  max-width: none;
-}
 .md-main:has(.embed-wrap) .md-sidebar--secondary {
   display: none;
 }
