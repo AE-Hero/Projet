@@ -8,9 +8,16 @@ docs_dir: !ENV [DOCS_DIR, docs]
 # publié par le workflow et garde des liens relatifs simples.
 use_directory_urls: false
 
+# Lien du pied de page : remplacez-le par la page de la formation
+copyright: >-
+  Fait avec <a href="https://github.com/AE-Hero">AE Hero</a>, la formation pour
+  devenir un boss en Analytics Engineering
+
 theme:
   name: material
   language: fr
+  favicon: assets/favicon.svg
+  logo: assets/logo.svg
   font:
     text: Inter
     code: JetBrains Mono
@@ -33,8 +40,8 @@ theme:
     - content.code.copy
     - search.highlight
 
-# Les liens "Dashboards" et "Documentation dbt" pointent vers des dossiers produits
-# par le workflow de déploiement : ils n'existent pas dans docs/.
+# "Documentation dbt" (et les dashboards intégrés dans la page Dashboards) pointent vers
+# des dossiers produits par le workflow de déploiement : ils n'existent pas dans docs/.
 validation:
   nav:
     not_found: ignore
@@ -45,13 +52,13 @@ validation:
 
 nav:
   - Accueil: index.md
-  - Dashboards: charts/index.html
+  - Dashboards: dashboards.md
   - Documentation dbt: dbt-docs/index.html
   - Explorateur SQL: explorer.md
 
 extra:
-  generator: false 
-  
+  generator: false
+
 extra_css:
   - stylesheets/site.css
   - stylesheets/explorer.css

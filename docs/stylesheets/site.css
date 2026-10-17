@@ -213,3 +213,60 @@
 .md-footer-meta {
   background-color: var(--brand-navy);
 }
+
+/* ---------- page intégrée (dashboards) : large, le contenu remplit l'écran ---------- */
+.md-main:has(.embed-wrap) .md-grid {
+  max-width: none;
+}
+.md-main:has(.embed-wrap) .md-sidebar--secondary {
+  display: none;
+}
+.md-content__inner:has(.embed-wrap) > h1 {
+  display: none;
+}
+.md-main:has(.embed-wrap) .md-main__inner {
+  margin-top: 1.2rem;
+}
+.md-content__inner:has(.embed-wrap) {
+  margin: 0 1.2rem;
+  padding-top: 0;
+}
+.md-content__inner:has(.embed-wrap)::before {
+  display: none;
+}
+.embed {
+  display: block;
+  width: 100%;
+  height: max(calc(100vh - 11rem), 640px);
+  height: max(calc(100dvh - 11rem), 640px);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.6rem;
+  background: #fff;
+}
+.embed-link {
+  margin: 0.6rem 0 0;
+  text-align: right;
+  font-size: 0.75rem;
+}
+
+/* Mention de la formation au-dessus du titre de l'accueil */
+.hero .eyebrow {
+  display: inline-block;
+  margin-bottom: 0.9rem;
+  padding: 0.2rem 0.8rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #fff;
+  border: 1px solid #ffffffb3;
+  border-radius: 1em;
+}
+.hero a.eyebrow {
+  text-decoration: none;
+}
+.hero a.eyebrow:hover {
+  color: var(--brand-purple);
+  background: #fff;
+}

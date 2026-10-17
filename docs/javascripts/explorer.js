@@ -1,530 +1,353 @@
-// Explorateur SQL : DuckDB-WASM dans le navigateur, données Parquet servies par le site.
-// Les fichiers sont lus à la demande (requêtes HTTP Range) : rien n'est téléchargé en entier
-// tant qu'une requête n'en a pas besoin.
-//
-// Interface : panneau de données à gauche (tables, colonnes, aperçu), éditeur à onglets
-// en haut à droite, résultats en dessous.
+/* Explorateur SQL (thème Material) : tables en bandeau, éditeur, puis résultats */
 
-const DUCKDB_VERSION = "1.29.0"; // à vérifier / mettre à jour
-const DUCKDB_URL = `https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@${DUCKDB_VERSION}/+esm`;
-const MAX_ROWS = 1000; // lignes affichées
-const MAX_EXPORT_ROWS = 1_000_000; // lignes exportées en CSV
-const STORE_KEY = `dbx-tabs-v1:${location.pathname}`;
-
-const quote = (s) => `"${String(s).replaceAll('"', '""')}"`;
-
-// ---------------------------------------------------------------- formatage
-
-function decimalToString(words, scale) {
-  let n = 0n;
-  for (let i = words.length - 1; i >= 0; i--) n = (n << 32n) | BigInt(words[i]);
-  if (words[words.length - 1] & 0x80000000) n -= 1n << BigInt(32 * words.length);
-  const negative = n < 0n;
-  let digits = (negative ? -n : n).toString().padStart(scale + 1, "0");
-  if (scale > 0) digits = `${digits.slice(0, -scale)}.${digits.slice(-scale)}`;
-  return (negative ? "-" : "") + digits;
+.dbx {
+  /* correspondance avec les couleurs du thème Material (suit le mode sombre) */
+  --background: var(--md-default-bg-color);
+  --foreground: var(--md-default-fg-color);
+  --border: var(--md-default-fg-color--lightest);
+  --muted: var(--md-code-bg-color);
+  --muted-foreground: var(--md-default-fg-color--light);
+  --primary: var(--md-accent-fg-color);
+  --primary-foreground: #fff;
+  --accent: var(--md-accent-fg-color--transparent);
+  --ring: var(--md-accent-fg-color);
+  --destructive: #dc2626;
+  --radius: 0.6rem;
+  --font-mono: var(--md-code-font-family);
+  --dbx-border: var(--border);
+  --dbx-muted: var(--muted-foreground);
+  --dbx-bg-alt: var(--muted);
+  --dbx-editor-h: 8rem;  /* hauteur de l'éditeur : se règle en tirant la barre de séparation */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* tables · onglets · barre d'outils · éditeur · séparateur · résultats */
+  grid-template-rows: auto auto auto var(--dbx-editor-h) 6px minmax(280px, 1fr);
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  /* occupe toute la hauteur de l'écran sous l'en-tête ; la doc se lit en dessous */
+  height: max(calc(100vh - 9.5rem), 780px);
+  height: max(calc(100dvh - 9.5rem), 780px);  /* la page défile si l'écran est petit */
+  min-height: 780px;
+  border: 1px solid var(--dbx-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 2.5rem;
+  font-size: 0.78rem;
+  background: var(--background);
+}
+.dbx > * {
+  min-width: 0;
+}
+.dbx button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
 }
 
-function formatValue(value, type) {
-  if (value === null || value === undefined) return null;
-  const t = String(type);
-  if (typeof value === "bigint") return value.toString();
-  if (t.startsWith("Decimal") && ArrayBuffer.isView(value)) {
-    return decimalToString(value, type.scale ?? 0);
-  }
-  if (typeof value === "number") {
-    if (t.startsWith("Date")) return new Date(value).toISOString().slice(0, 10);
-    if (t.startsWith("Timestamp")) {
-      return new Date(value).toISOString().replace("T", " ").slice(0, 19);
-    }
-  }
-  if (typeof value === "object") {
-    try {
-      return JSON.stringify(value, (_, v) => (typeof v === "bigint" ? v.toString() : v));
-    } catch {
-      return String(value);
-    }
-  }
-  return String(value);
+/* ---------- bandeau de tables ---------- */
+.dbx-tables {
+  border-bottom: 1px solid var(--dbx-border);
+  background: var(--dbx-bg-alt);
+}
+.dbx-tables-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem 0.5rem;
+}
+.dbx-count {
+  color: var(--dbx-muted);
+}
+.dbx-search {
+  flex: 0 1 18rem;
+  margin-left: auto;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  color: var(--foreground);
+  background: var(--background);
+  border: 1px solid var(--dbx-border);
+  border-radius: 0.2rem;
 }
 
-function isNumericType(type) {
-  return /^(Int|Uint|Float|Decimal)/.test(String(type));
+.dbx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-height: 4.6rem;
+  padding: 0.3rem 1rem 0.9rem;
+  overflow-y: auto;
+}
+.dbx-chip {
+  transition: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  background: var(--background);
+  border: 1px solid var(--dbx-border);
+  border-radius: 1rem;
+}
+.dbx-chip[hidden] {
+  display: none;
+}
+.dbx-chip small {
+  color: var(--dbx-muted);
+  font-size: 0.62rem;
+}
+.dbx-chip:hover {
+  border-color: var(--ring);
+}
+.dbx-chip.is-active {
+  color: #fff !important;
+  background: linear-gradient(90deg, #672863, #b04267) border-box !important;
+  border-color: transparent !important;
+  opacity: 1 !important;
+}
+.dbx-chip.is-active small {
+  color: inherit;
+  opacity: 0.8;
 }
 
-function toCsv(result) {
-  const fields = result.schema.fields;
-  const cols = fields.map((_, j) => result.getChildAt(j));
-  const escape = (text) => (/[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text);
-  const lines = [fields.map((f) => escape(f.name)).join(",")];
-  const n = Math.min(result.numRows, MAX_EXPORT_ROWS);
-  for (let i = 0; i < n; i++) {
-    lines.push(
-      fields.map((f, j) => escape(formatValue(cols[j].get(i), f.type) ?? "")).join(",")
-    );
+.dbx-panel {
+  max-height: 8.5rem;
+  padding: 0.8rem 1rem 0.9rem;
+  overflow: auto;
+  background: var(--background);
+  border-top: 1px solid var(--dbx-border);
+}
+.dbx-panel[hidden] {
+  display: none;
+}
+.dbx-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+.dbx-panel-meta {
+  color: var(--dbx-muted);
+}
+.dbx-cols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.dbx-col {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  background: var(--dbx-bg-alt);
+  border: 1px solid transparent;
+  border-radius: 0.2rem;
+}
+.dbx-col:hover {
+  border-color: var(--ring);
+}
+.dbx-col small {
+  color: var(--dbx-muted);
+  font-size: 0.6rem;
+}
+
+/* ---------- onglets et barre d'outils ---------- */
+.dbx-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0.6rem 0.8rem 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--dbx-border);
+  background: var(--dbx-bg-alt);
+}
+.dbx-tab {
+  display: flex;
+  align-items: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 0.25rem 0.25rem 0 0;
+}
+.dbx-tab.is-active {
+  box-shadow: inset 0 3px 0 #b04267;
+  background: var(--background);
+  border-color: var(--dbx-border);
+  margin-bottom: -1px;
+  padding-bottom: 1px;
+}
+.dbx-tab-label {
+  padding: 0.5rem 0.4rem 0.5rem 0.9rem;
+  background: none;
+  border: 0;
+}
+.dbx-tab:not(.is-active) .dbx-tab-label {
+  color: var(--dbx-muted);
+}
+.dbx-tab-close,
+.dbx-tab-add {
+  padding: 0.2rem 0.45rem;
+  color: var(--dbx-muted);
+  background: none;
+  border: 0;
+  border-radius: 0.2rem;
+}
+.dbx-tab-close:hover,
+.dbx-tab-add:hover {
+  color: var(--ring);
+}
+.dbx-tab-add {
+  align-self: center;
+  font-size: 0.95rem;
+}
+
+.dbx-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--dbx-border);
+}
+.dbx-spacer {
+  flex: 1;
+}
+.dbx-hint {
+  color: var(--dbx-muted);
+  font-size: 0.65rem;
+}
+.dbx-btn {
+  padding: 0.4rem 0.9rem;
+  background: var(--background);
+  border: 1px solid var(--dbx-border);
+  border-radius: 0.3rem;
+}
+.dbx-btn-small {
+  padding: 0.15rem 0.5rem;
+}
+.dbx-btn:hover:not(:disabled) {
+  border-color: var(--ring);
+}
+.dbx-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.dbx-btn-primary {
+  color: #fff !important;
+  background: linear-gradient(90deg, #672863, #b04267 60%, #e6725d) border-box;
+  border-color: transparent;
+}
+
+/* ---------- éditeur ---------- */
+.dbx-editor {
+  min-height: 0;
+}
+.dbx-editor textarea {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 1rem 1.2rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  line-height: 1.65;
+  tab-size: 2;
+  color: var(--foreground);
+  background: var(--background);
+  border: 0;
+  outline: none;
+  resize: none;
+}
+
+.dbx-split {
+  cursor: row-resize;
+  background: var(--dbx-bg-alt);
+  border-top: 1px solid var(--dbx-border);
+  border-bottom: 1px solid var(--dbx-border);
+  touch-action: none;
+}
+.dbx-split:hover {
+  background: var(--accent);
+}
+
+/* ---------- résultats : le tableau défile dans sa zone, jamais dans la page ---------- */
+.dbx-results {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.dbx-result-bar {
+  padding: 0.6rem 1.1rem;
+  color: var(--dbx-muted);
+  border-bottom: 1px solid var(--dbx-border);
+}
+.dbx-result-bar[data-kind="ok"] {
+  color: var(--foreground);
+}
+.dbx-result-bar[data-kind="error"] {
+  color: var(--destructive);
+  font-weight: 700;
+}
+.dbx-result-body {
+  padding-bottom: 0.8rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dbx-error {
+  margin: 0;
+  padding: 1rem 1.2rem;
+  white-space: pre-wrap;
+  color: var(--destructive);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+}
+
+.dbx-grid {
+  min-width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+.dbx-grid th,
+.dbx-grid td {
+  padding: 0.5rem 1.1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--dbx-border);
+}
+.dbx-grid th {
+  border-bottom: 2px solid #b04267;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-weight: 700;
+  background: var(--dbx-bg-alt);
+}
+.dbx-grid tbody tr:hover {
+  background: var(--accent);
+}
+.dbx-grid .dbx-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.dbx-grid .dbx-rownum {
+  width: 1%;
+  color: var(--dbx-muted);
+  text-align: right;
+  background: var(--dbx-bg-alt);
+}
+.dbx-grid td.dbx-null {
+  color: var(--dbx-muted);
+  font-style: italic;
+}
+
+@media (max-width: 700px) {
+  .dbx-hint {
+    display: none;
   }
-  return `﻿${lines.join("\n")}\n`;
-}
-
-// ---------------------------------------------------------------- interface
-
-const TEMPLATE = `
-<div class="dbx-tables">
-  <div class="dbx-tables-head">
-    <strong>Tables</strong>
-    <span class="dbx-count" id="dbx-count"></span>
-    <input class="dbx-search" id="dbx-search" type="search" placeholder="Filtrer tables et colonnes…" aria-label="Filtrer">
-  </div>
-  <div class="dbx-chips" id="dbx-chips"></div>
-  <div class="dbx-panel" id="dbx-panel" hidden></div>
-</div>
-<div class="dbx-tabs" id="dbx-tabs" role="tablist"></div>
-<div class="dbx-toolbar">
-  <button class="dbx-btn dbx-btn-primary" id="dbx-run" type="button" disabled>▶ Exécuter</button>
-  <span class="dbx-hint">Ctrl+Entrée · exécute la sélection s'il y en a une</span>
-  <span class="dbx-spacer"></span>
-  <button class="dbx-btn" id="dbx-csv" type="button" disabled>⬇ CSV</button>
-</div>
-<div class="dbx-editor"><textarea id="dbx-sql" spellcheck="false" aria-label="Requête SQL"></textarea></div>
-<div class="dbx-split" id="dbx-split" role="separator" aria-orientation="horizontal" title="Glisser pour redimensionner"></div>
-<div class="dbx-results">
-  <div class="dbx-result-bar" id="dbx-info">Chargement…</div>
-  <div class="dbx-result-body" id="dbx-result"></div>
-</div>
-`;
-
-function node(tag, className, text) {
-  const e = document.createElement(tag);
-  if (className) e.className = className;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-
-function fitHeight(root) {
-  const top = root.getBoundingClientRect().top + window.scrollY;
-  root.style.height = `${Math.max(440, window.innerHeight - top - 12)}px`;
-}
-
-// Onglets de requêtes, conservés dans le navigateur (par site).
-function loadTabs() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORE_KEY) ?? "null");
-    if (saved?.tabs?.length) return saved;
-  } catch {
-    /* stockage indisponible : on repart d'un onglet vide */
+  .dbx-search {
+    flex: 1;
   }
-  return null;
-}
-
-function saveTabs(state) {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
-  } catch {
-    /* ignoré */
-  }
-}
-
-async function loadDuckDB(setInfo) {
-  setInfo("Chargement de DuckDB…");
-  const duckdb = await import(DUCKDB_URL);
-  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
-  const workerUrl = URL.createObjectURL(
-    new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" })
-  );
-  const db = new duckdb.AsyncDuckDB(
-    new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING),
-    new Worker(workerUrl)
-  );
-  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-  URL.revokeObjectURL(workerUrl);
-  return { duckdb, db, conn: await db.connect() };
-}
-
-async function init(root) {
-  document.body.classList.add("dbx-page");
-  root.classList.add("dbx");
-  root.innerHTML = TEMPLATE;
-  fitHeight(root);
-  window.addEventListener("resize", () => fitHeight(root));
-
-  const $ = (id) => root.querySelector(`#${id}`);
-  const chipsEl = $("dbx-chips");
-  const panelEl = $("dbx-panel");
-  const tabsEl = $("dbx-tabs");
-  const sqlEl = $("dbx-sql");
-  const runBtn = $("dbx-run");
-  const csvBtn = $("dbx-csv");
-  const infoEl = $("dbx-info");
-  const resultEl = $("dbx-result");
-  const searchEl = $("dbx-search");
-
-  const setInfo = (text, kind = "") => {
-    infoEl.textContent = text;
-    infoEl.dataset.kind = kind;
-  };
-
-  // Barre de séparation éditeur / résultats
-  const split = $("dbx-split");
-  split.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    split.setPointerCapture(event.pointerId);
-    const move = (e) => {
-      const rect = root.getBoundingClientRect();
-      const top = root.querySelector(".dbx-editor").getBoundingClientRect().top;
-      const height = Math.min(Math.max(e.clientY - top, 80), rect.bottom - top - 140);
-      root.style.setProperty("--dbx-editor-h", `${height}px`);
-    };
-    const stop = () => {
-      split.removeEventListener("pointermove", move);
-      split.removeEventListener("pointerup", stop);
-    };
-    split.addEventListener("pointermove", move);
-    split.addEventListener("pointerup", stop);
-  });
-
-  // ------------------------------------------------------------ catalogue
-  const base = new URL(root.dataset.base, window.location.href);
-  setInfo("Chargement du catalogue des données…");
-  let manifest;
-  try {
-    const resp = await fetch(new URL("manifest.json", base));
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    manifest = await resp.json();
-  } catch {
-    setInfo(
-      "Aucune donnée publiée pour le moment : l'explorateur sera disponible après un déploiement.",
-      "error"
-    );
-    return;
-  }
-
-  const { duckdb, db, conn } = await loadDuckDB(setInfo);
-
-  const available = [];
-  for (const [env, info] of Object.entries(manifest.environments ?? {})) {
-    if (!info.tables?.length) continue;
-    await conn.query(`CREATE SCHEMA IF NOT EXISTS ${quote(env)}`);
-    for (const t of info.tables) {
-      const registered = t.file.replaceAll("/", "__");
-      await db.registerFileURL(
-        registered,
-        new URL(t.file, base).href,
-        duckdb.DuckDBDataProtocol.HTTP,
-        false
-      );
-      await conn.query(
-        `CREATE OR REPLACE VIEW ${quote(env)}.${quote(t.view)} AS SELECT * FROM read_parquet('${registered}')`
-      );
-      available.push({ env, ...t });
-    }
-  }
-
-  if (!available.length) {
-    setInfo("Aucune table exportée pour l'explorateur.", "error");
-    return;
-  }
-
-  // ------------------------------------------------------------ éditeur et onglets
-  const metaConn = await db.connect(); // connexion dédiée aux métadonnées
-  const first = available[0];
-  const firstSql = `SELECT *\nFROM ${first.env}.${first.view}\nLIMIT 100;`;
-  const state = loadTabs() ?? { tabs: [{ id: 1, name: "Requête 1", sql: firstSql }], active: 1, next: 2 };
-  const activeTab = () => state.tabs.find((t) => t.id === state.active) ?? state.tabs[0];
-
-  const persist = () => saveTabs(state);
-
-  const renderTabs = () => {
-    tabsEl.replaceChildren();
-    for (const tab of state.tabs) {
-      const item = node("div", `dbx-tab${tab.id === activeTab().id ? " is-active" : ""}`);
-      item.setAttribute("role", "tab");
-      const label = node("button", "dbx-tab-label", tab.name);
-      label.type = "button";
-      label.addEventListener("click", () => selectTab(tab.id));
-      label.addEventListener("dblclick", () => {
-        const name = prompt("Nom de l'onglet", tab.name);
-        if (name?.trim()) {
-          tab.name = name.trim();
-          persist();
-          renderTabs();
-        }
-      });
-      item.appendChild(label);
-      const close = node("button", "dbx-tab-close", "×");
-      close.type = "button";
-      close.title = "Fermer l'onglet";
-      close.addEventListener("click", () => closeTab(tab.id));
-      item.appendChild(close);
-      tabsEl.appendChild(item);
-    }
-    const add = node("button", "dbx-tab-add", "+");
-    add.type = "button";
-    add.title = "Nouvelle requête";
-    add.addEventListener("click", () => newTab(""));
-    tabsEl.appendChild(add);
-  };
-
-  const selectTab = (id) => {
-    state.active = id;
-    sqlEl.value = activeTab().sql;
-    persist();
-    renderTabs();
-    sqlEl.focus();
-  };
-
-  const newTab = (sql) => {
-    const id = state.next++;
-    state.tabs.push({ id, name: `Requête ${id}`, sql });
-    selectTab(id);
-  };
-
-  const closeTab = (id) => {
-    const index = state.tabs.findIndex((t) => t.id === id);
-    state.tabs.splice(index, 1);
-    if (!state.tabs.length) {
-      state.tabs.push({ id: state.next, name: `Requête ${state.next}`, sql: "" });
-      state.next += 1;
-    }
-    selectTab(state.tabs[Math.min(index, state.tabs.length - 1)].id);
-  };
-
-  sqlEl.value = activeTab().sql;
-  sqlEl.addEventListener("input", () => {
-    activeTab().sql = sqlEl.value;
-    persist();
-  });
-
-  const insertAtCursor = (text) => {
-    sqlEl.setRangeText(text, sqlEl.selectionStart, sqlEl.selectionEnd, "end");
-    activeTab().sql = sqlEl.value;
-    persist();
-    sqlEl.focus();
-  };
-
-  // ------------------------------------------------------------ exécution
-  let lastResult = null;
-
-  const renderResult = (result) => {
-    const fields = result.schema.fields;
-    const cols = fields.map((_, j) => result.getChildAt(j));
-    const shown = Math.min(result.numRows, MAX_ROWS);
-
-    const table = node("table", "dbx-grid");
-    const head = table.createTHead().insertRow();
-    head.appendChild(node("th", "dbx-rownum", "#"));
-    for (const f of fields) {
-      const th = node("th", isNumericType(f.type) ? "dbx-num" : "", f.name);
-      th.title = `${f.name} · ${String(f.type)}`;
-      head.appendChild(th);
-    }
-    const body = table.createTBody();
-    for (let i = 0; i < shown; i++) {
-      const tr = body.insertRow();
-      tr.appendChild(node("td", "dbx-rownum", String(i + 1)));
-      fields.forEach((f, j) => {
-        const td = tr.insertCell();
-        const text = formatValue(cols[j].get(i), f.type);
-        if (text === null) {
-          td.textContent = "NULL";
-          td.className = "dbx-null";
-        } else {
-          td.textContent = text;
-          if (isNumericType(f.type)) td.className = "dbx-num";
-        }
-      });
-    }
-    resultEl.replaceChildren(table);
-    return shown;
-  };
-
-  const run = async () => {
-    const selected = sqlEl.value.slice(sqlEl.selectionStart, sqlEl.selectionEnd).trim();
-    const sql = selected || sqlEl.value.trim();
-    if (!sql) return;
-    runBtn.disabled = true;
-    csvBtn.disabled = true;
-    setInfo("Exécution…");
-    const t0 = performance.now();
-    try {
-      const result = await conn.query(sql);
-      const shown = renderResult(result);
-      lastResult = result;
-      const ms = Math.round(performance.now() - t0);
-      const total = result.numRows.toLocaleString("fr-FR");
-      setInfo(
-        result.numRows > shown
-          ? `${total} lignes (${shown.toLocaleString("fr-FR")} affichées) · ${ms} ms`
-          : `${total} ligne${result.numRows > 1 ? "s" : ""} · ${ms} ms`,
-        "ok"
-      );
-      csvBtn.disabled = result.numRows === 0;
-    } catch (err) {
-      resultEl.replaceChildren(node("pre", "dbx-error", String(err.message ?? err)));
-      setInfo("Erreur", "error");
-      lastResult = null;
-    } finally {
-      runBtn.disabled = false;
-    }
-  };
-
-  runBtn.addEventListener("click", run);
-  csvBtn.addEventListener("click", () => {
-    if (!lastResult) return;
-    const url = URL.createObjectURL(new Blob([toCsv(lastResult)], { type: "text/csv" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `resultat-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  });
-
-  sqlEl.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      run();
-    } else if (e.key === "Tab" && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      e.preventDefault();
-      insertAtCursor("  ");
-    } else if (e.key === "Escape") {
-      sqlEl.blur(); // permet de quitter le champ au clavier
-    }
-  });
-
-  // ------------------------------------------------------------ bandeau de tables
-  $("dbx-count").textContent = `${available.length} table${available.length > 1 ? "s" : ""}`;
-
-  const entries = available.map((t) => ({
-    ...t,
-    qualified: `${t.env}.${t.view}`,
-    key: t.view.toLowerCase(),
-    columns: null,
-    chip: null,
-  }));
-
-  const loadColumns = async (entry) => {
-    if (entry.columns) return;
-    const info = await metaConn.query(`DESCRIBE ${quote(entry.env)}.${quote(entry.view)}`);
-    const names = info.getChildAt(0);
-    const types = info.getChildAt(1);
-    entry.columns = [];
-    for (let i = 0; i < info.numRows; i++) {
-      entry.columns.push({ name: String(names.get(i)), type: String(types.get(i)) });
-    }
-  };
-
-  let openEntry = null;
-
-  const renderPanel = (entry) => {
-    panelEl.replaceChildren();
-    const head = node("div", "dbx-panel-head");
-    head.appendChild(node("strong", "", entry.qualified));
-    head.appendChild(
-      node(
-        "span",
-        "dbx-panel-meta",
-        `${entry.rows.toLocaleString("fr-FR")} lignes${entry.sampled ? " · échantillon" : ""}`
-      )
-    );
-    const insert = node("button", "dbx-btn dbx-btn-small", "Insérer le nom");
-    insert.type = "button";
-    insert.addEventListener("click", () => insertAtCursor(entry.qualified));
-    const preview = node("button", "dbx-btn dbx-btn-small", "▶ Aperçu (100 lignes)");
-    preview.type = "button";
-    preview.addEventListener("click", () => {
-      newTab(`SELECT *\nFROM ${entry.qualified}\nLIMIT 100;`);
-      run();
-    });
-    const close = node("button", "dbx-btn dbx-btn-small", "×");
-    close.type = "button";
-    close.title = "Fermer";
-    close.addEventListener("click", () => togglePanel(entry));
-    head.append(node("span", "dbx-spacer"), insert, preview, close);
-    panelEl.appendChild(head);
-
-    const list = node("div", "dbx-cols");
-    if (!entry.columns) {
-      list.textContent = "Chargement des colonnes…";
-    } else {
-      for (const column of entry.columns) {
-        const pill = node("button", "dbx-col");
-        pill.type = "button";
-        pill.title = `Insérer ${column.name}`;
-        pill.append(node("span", "", column.name), node("small", "", column.type));
-        pill.addEventListener("click", () => insertAtCursor(column.name));
-        list.appendChild(pill);
-      }
-    }
-    panelEl.appendChild(list);
-  };
-
-  const togglePanel = async (entry) => {
-    for (const e of entries) e.chip.classList.remove("is-active");
-    if (openEntry === entry) {
-      openEntry = null;
-      panelEl.hidden = true;
-      return;
-    }
-    openEntry = entry;
-    entry.chip.classList.add("is-active");
-    panelEl.hidden = false;
-    renderPanel(entry);
-    if (!entry.columns) {
-      try {
-        await loadColumns(entry);
-      } catch (err) {
-        panelEl.querySelector(".dbx-cols").textContent = String(err.message ?? err);
-        return;
-      }
-      if (openEntry === entry) renderPanel(entry);
-    }
-  };
-
-  for (const entry of entries) {
-    const chip = node("button", "dbx-chip");
-    chip.type = "button";
-    chip.title = `${entry.qualified} · cliquer pour voir les colonnes`;
-    chip.append(node("span", "", entry.view), node("small", "", entry.rows.toLocaleString("fr-FR")));
-    chip.addEventListener("click", () => togglePanel(entry));
-    entry.chip = chip;
-    chipsEl.appendChild(chip);
-  }
-
-  // Filtre : nom de table, ou nom de colonne une fois les colonnes chargées
-  searchEl.addEventListener("input", () => {
-    const q = searchEl.value.trim().toLowerCase();
-    for (const entry of entries) {
-      const match =
-        !q ||
-        entry.key.includes(q) ||
-        (entry.columns ?? []).some((c) => c.name.toLowerCase().includes(q));
-      entry.chip.hidden = !match;
-    }
-  });
-
-  // Les colonnes sont chargées en arrière-plan pour que le filtre les trouve
-  (async () => {
-    for (const entry of entries) {
-      try {
-        await loadColumns(entry);
-      } catch {
-        /* une table illisible n'empêche pas l'explorateur de fonctionner */
-      }
-    }
-  })();
-
-  renderTabs();
-  runBtn.disabled = false;
-  setInfo("Prêt. Ctrl+Entrée pour exécuter.", "ok");
-}
-
-const root = document.getElementById("explorer");
-if (root) {
-  init(root).catch((err) => {
-    const info = root.querySelector("#dbx-info");
-    if (info) {
-      info.textContent = `Erreur au chargement de l'explorateur : ${err.message ?? err}`;
-      info.dataset.kind = "error";
-    }
-    console.error(err);
-  });
 }
