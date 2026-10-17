@@ -142,6 +142,47 @@ def build_charts(archive: Path, out: Path, env: str) -> None:
     )
 
 
+# ---------------------------------------------------------------- pages de repli
+
+PLACEHOLDER = (
+    '<!doctype html><html lang="fr"><meta charset="utf-8">'
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    "<title>{title}</title><style>{style}</style>"
+    "<h1>{title}</h1><p>{message}</p>"
+    '<p><a href="{back}">← Retour à l\'accueil</a></p></html>'
+)
+
+
+def write_placeholder(directory: Path, title: str, message: str) -> None:
+    """Page affichée tant qu'aucun déploiement n'a produit le contenu réel."""
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "index.html").write_text(
+        PLACEHOLDER.format(
+            title=html.escape(title),
+            message=html.escape(message),
+            style=LIST_STYLE.replace("a{display:block;", "a{display:inline;"),
+            back="../index.html",
+        ),
+        encoding="utf-8",
+    )
+
+
+def add_placeholders(out: Path, env: str) -> None:
+    """Les liens de la barre du haut doivent toujours mener quelque part."""
+    if not (out / "dbt-docs" / "index.html").exists():
+        write_placeholder(
+            out / "dbt-docs",
+            "Documentation dbt",
+            f"Pas encore disponible : aucun déploiement {env} n'a généré la documentation.",
+        )
+    if not (out / "charts" / "index.html").exists():
+        write_placeholder(
+            out / "charts",
+            "Dashboards",
+            f"Pas encore disponible : aucun dashboard n'a été publié pour {env}.",
+        )
+
+
 # ---------------------------------------------------------------- page d'accueil
 
 
@@ -181,13 +222,28 @@ def build_env(env: str, other: str, args: argparse.Namespace) -> None:
             build_dbt_docs(args.project, env, out)
         except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
             warn(f"{env} : doc dbt non générée ({exc})")
-        if args.export_script.exists():
+        if not args.export_script.exists():
+            warn(
+                f"{env} : script d'export introuvable ({args.export_script}), "
+                "l'explorateur SQL n'aura pas de données. "
+                "Utilise --export-script pour indiquer son chemin."
+            )
+        else:
             try:
                 export_parquet(
                     args.export_script, db, out, env, args.schemas, args.max_table_mb
                 )
             except subprocess.CalledProcessError as exc:
                 warn(f"{env} : export Parquet ignoré ({exc})")
+            manifest = out / "data" / "manifest.json"
+            if manifest.exists():
+                files = list((out / "data").rglob("*.parquet"))
+                print(f"{env} : {len(files)} fichier(s) Parquet, {size_mb(out / 'data'):.1f} Mo", flush=True)
+            else:
+                warn(
+                    f"{env} : aucun manifest.json généré dans {out / 'data'} "
+                    "(schémas filtrés trop strictement ? aucune table exportable ?)"
+                )
     else:
         warn(f"{db.name} absent : doc dbt et données {env} ignorées.")
 
@@ -198,6 +254,8 @@ def build_env(env: str, other: str, args: argparse.Namespace) -> None:
         except (tarfile.TarError, OSError) as exc:
             warn(f"{env} : dashboards ignorés ({exc})")
 
+    add_placeholders(out, env)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -207,7 +265,7 @@ def main() -> int:
     parser.add_argument("--docs", type=Path, default=Path("docs"))
     parser.add_argument("--project", type=Path, default=Path("real_estate_analysis"))
     parser.add_argument("--downloads", type=Path, default=Path("real_estate_analysis/_downloads"))
-    parser.add_argument("--export-script", type=Path, default=Path(".github/scripts/export_parquet.py"))
+    parser.add_argument("--export-script", type=Path, default=Path(".github/scripts/cd-export-parquet.py"))
     parser.add_argument("--schemas", default="", help="Schémas à exporter (défaut : tous)")
     parser.add_argument("--max-table-mb", default="100")
     args = parser.parse_args()
