@@ -1,11 +1,14 @@
+---
+hide:
+  - toc
+---
+
 # Dashboards
 
-Les tableaux de bord sont générés avec **dbt Charts** à partir des modèles du
-projet, puis publiés avec ce site à chaque déploiement.
+<div class="embed-wrap" markdown>
 
-[:material-chart-box: Ouvrir les dashboards (__ENV__)](charts/){ .md-button .md-button--primary }
+<iframe class="embed" src="charts/index.html" title="Dashboards (__ENV__)" loading="lazy"></iframe>
 
-!!! info "Pas encore disponible ?"
-    Les dashboards n'apparaissent qu'après un déploiement réussi de
-    l'environnement **__ENV__**. Si le lien renvoie une erreur 404, aucun
-    dashboard n'a encore été publié.
+<p class="embed-link"><a href="charts/index.html" target="_blank" rel="noopener">Ouvrir dans un nouvel onglet ↗</a></p>
+
+</div>
