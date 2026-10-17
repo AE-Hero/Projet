@@ -53,7 +53,7 @@ validation:
 nav:
   - Accueil: index.md
   - Dashboards: dashboards.md
-  - Documentation dbt: documentation-dbt.md
+  - Documentation dbt: dbt-docs.md
   - Explorateur SQL: explorer.md
 
 extra:
