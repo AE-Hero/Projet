@@ -5,8 +5,6 @@ on:
     branches: [main]
     paths:
       - "real_estate_analysis/**"
-      - "pyproject.toml"
-      - "uv.lock"
       - ".github/workflows/ci-dbt-build.yml"
       - ".github/scripts/**"
   workflow_dispatch:
@@ -35,19 +33,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
         with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: real_estate_analysis/requirements.txt
 
-      # pyproject.toml / uv.lock sont à la racine du repo : uv les trouve en remontant
-      # depuis real_estate_analysis/. On ajoute le venv au PATH pour garder des
-      # commandes simples (dbt, python...) dans les étapes suivantes.
       - name: Install dependencies
-        run: |
-          uv sync --locked --no-dev
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+        run: pip install -r requirements.txt
 
       - name: dbt deps
         run: dbt deps

@@ -1,12 +1,10 @@
-name: CD - deploy preprod
+name: dbt CD deploy preprod
 
 on:
   push:
     branches: [main]
     paths:
       - "real_estate_analysis/**"
-      - "pyproject.toml"
-      - "uv.lock"
       - ".github/workflows/cd-deploy-preprod.yml"
   workflow_dispatch:
 
@@ -33,16 +31,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-python@v5
         with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
           python-version: "3.12"
+          cache: pip
+          cache-dependency-path: real_estate_analysis/requirements.txt
 
       - name: Install dependencies
-        run: |
-          uv sync --locked --no-dev
-          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+        run: pip install -r requirements.txt
 
       - name: dbt deps
         run: dbt deps
@@ -76,22 +72,25 @@ jobs:
           retention-days: 30
 
       # dbt Charts (CLI dct) : non bloquant, la compatibilité DuckDB n'est pas confirmée.
-      # Lancé via uvx dans un environnement isolé : dbt Charts n'entre pas en conflit
-      # avec les versions de dbt du projet (voir uv.lock).
+      - name: Install dbt Charts
+        id: charts_install
+        continue-on-error: true
+        run: pip install dbt-charts
+
       - name: Validate & render boards
         id: charts_render
+        if: steps.charts_install.outcome == 'success'
         continue-on-error: true
         run: |
           if [ ! -d charts ]; then
             echo "Pas de dossier charts/, étape ignorée."
             exit 0
           fi
-          DCT="uvx --with dbt-duckdb --from dbt-charts dct"
-          $DCT validate
+          dct validate
           mkdir -p charts_out
           for board in charts/*.yml charts/*.yaml; do
             [ -e "$board" ] || continue
-            $DCT render "$board" --format html > "charts_out/$(basename "${board%.*}").html"
+            dct render "$board" --format html > "charts_out/$(basename "${board%.*}").html"
           done
 
       - name: Publish rendered boards as release asset
