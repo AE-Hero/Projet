@@ -1,10 +1,12 @@
-name: CI - dbt-project-evaluator
+name: CI - lint
 
 on:
   pull_request:
     branches: [main]
     paths:
       - "real_estate_analysis/**"
+      - "pyproject.toml"
+      - "uv.lock"
       - ".github/workflows/ci-lint.yml"
   workflow_dispatch:
 
@@ -33,18 +35,23 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: real_estate_analysis/requirements.txt
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          uv sync --locked
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
 
+      # Le templater dbt de SQLFluff a besoin des packages
       - name: dbt deps
         run: dbt deps
 
+      # On ne lint que les fichiers SQL modifiés dans la PR.
+      # --relative : chemins relatifs au dossier courant (real_estate_analysis/)
       - name: Lint changed SQL files
         run: |
           git diff -z --name-only --relative --diff-filter=ACMR \
@@ -53,4 +60,4 @@ jobs:
             echo "Aucun fichier SQL modifié, lint ignoré."
             exit 0
           fi
-          xargs -0 sqlfluff lint --format github-annotation-native < changed.txt
+          xargs -0 sqlfluff lint --format github-annotation-native < changed.txts
