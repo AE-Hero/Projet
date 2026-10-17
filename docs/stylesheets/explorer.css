@@ -95,9 +95,9 @@
   border-color: var(--ring);
 }
 .dbx-chip.is-active {
-  color: var(--primary-foreground) !important;
-  background: var(--primary) !important;
-  border-color: var(--primary) !important;
+  color: #fff !important;
+  background: linear-gradient(90deg, #672863, #b04267) border-box !important;
+  border-color: transparent !important;
   opacity: 1 !important;
 }
 .dbx-chip.is-active small {
@@ -165,6 +165,7 @@
   border-radius: 0.25rem 0.25rem 0 0;
 }
 .dbx-tab.is-active {
+  box-shadow: inset 0 3px 0 #b04267;
   background: var(--background);
   border-color: var(--dbx-border);
   margin-bottom: -1px;
@@ -226,9 +227,9 @@
   cursor: default;
 }
 .dbx-btn-primary {
-  color: var(--primary-foreground) !important;
-  background: var(--primary);
-  border-color: var(--primary);
+  color: #fff !important;
+  background: linear-gradient(90deg, #672863, #b04267 60%, #e6725d) border-box;
+  border-color: transparent;
 }
 
 /* ---------- éditeur ---------- */
@@ -312,6 +313,7 @@
   border-bottom: 1px solid var(--dbx-border);
 }
 .dbx-grid th {
+  border-bottom: 2px solid #b04267;
   position: sticky;
   top: 0;
   z-index: 1;
