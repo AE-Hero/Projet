@@ -140,14 +140,6 @@ jobs:
             echo "::warning::Site de ${size_mb} Mo, proche de la limite GitHub Pages (1 Go)."
           fi
 
-      # Copie brute du site, utilisée par le déploiement Netlify
-      - uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: site
-          retention-days: 7
-
-      # Pages n'est configuré que dans les repos publics
       - uses: actions/configure-pages@v5
         if: github.event.repository.private == false
 
@@ -170,31 +162,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-
-  deploy-netlify:
-    name: Deploy to Netlify
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-    steps:
-      - name: Check Netlify secrets
-        id: check
-        run: |
-          if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
-            echo "Secrets Netlify absents : déploiement ignoré."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: actions/download-artifact@v4
-        if: steps.check.outputs.enabled == 'true'
-        with:
-          name: site
-          path: site
-
-      - name: Deploy
-        if: steps.check.outputs.enabled == 'true'
-        run: npx --yes netlify-cli@latest deploy --dir=site --prod --no-build
