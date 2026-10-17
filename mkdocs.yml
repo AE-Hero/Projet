@@ -49,6 +49,9 @@ nav:
   - Documentation dbt: dbt-docs/index.html
   - Explorateur SQL: explorer.md
 
+extra:
+  generator: false 
+  
 extra_css:
   - stylesheets/site.css
   - stylesheets/explorer.css
