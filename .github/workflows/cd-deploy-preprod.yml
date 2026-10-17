@@ -1,4 +1,4 @@
-name: dbt CD deploy preprod
+name: ⚙️ CD - Deploy preprod db & dashboards
 
 on:
   push:
