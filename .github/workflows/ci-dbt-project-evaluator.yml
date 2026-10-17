@@ -1,4 +1,4 @@
-name: CI - dbt-project-evaluator
+name: 🧪 CI - dbt-project-evaluator
 
 on:
   pull_request:
