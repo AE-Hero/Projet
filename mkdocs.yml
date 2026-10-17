@@ -9,6 +9,8 @@ docs_dir: !ENV [DOCS_DIR, docs]
 use_directory_urls: false
 
 theme:
+  name: material
+  language: fr
   font:
     text: Inter
     code: JetBrains Mono
@@ -16,26 +18,39 @@ theme:
     - scheme: default
       primary: custom
       accent: custom
-      toggle: {icon: material/weather-night, name: Mode sombre}
+      toggle:
+        icon: material/weather-night
+        name: Mode sombre
     - scheme: slate
       primary: custom
       accent: custom
-      toggle: {icon: material/weather-sunny, name: Mode clair}
-  name: material
-  language: fr
+      toggle:
+        icon: material/weather-sunny
+        name: Mode clair
   features:
     - navigation.tabs
     - navigation.top
     - content.code.copy
     - search.highlight
 
+# Les liens "Dashboards" et "Documentation dbt" pointent vers des dossiers produits
+# par le workflow de déploiement : ils n'existent pas dans docs/.
+validation:
+  nav:
+    not_found: ignore
+    omitted_files: ignore
+  links:
+    not_found: ignore
+    unrecognized_links: ignore
+
 nav:
   - Accueil: index.md
-  - Dashboards: dashboards.md
-  - Documentation dbt: dbt-docs.md
+  - Dashboards: charts/index.html
+  - Documentation dbt: dbt-docs/index.html
   - Explorateur SQL: explorer.md
 
 extra_css:
+  - stylesheets/site.css
   - stylesheets/explorer.css
 
 extra_javascript:
@@ -47,6 +62,8 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - toc:
+      permalink: false
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true

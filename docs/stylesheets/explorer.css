@@ -1,23 +1,22 @@
-/* Explorateur SQL : pleine largeur, tables en bandeau, éditeur, puis résultats */
-
-.dbx-page .md-grid {
-  max-width: none;
-}
-.dbx-page .md-content__inner {
-  margin: 0 0.8rem;
-  padding-top: 0.6rem;
-}
-.dbx-page .md-content__inner::before {
-  display: none;
-}
-.dbx-page .md-typeset h1 {
-  display: none;
-}
+/* Explorateur SQL (thème Material) : tables en bandeau, éditeur, puis résultats */
 
 .dbx {
-  --dbx-border: var(--md-default-fg-color--lightest);
-  --dbx-muted: var(--md-default-fg-color--light);
-  --dbx-bg-alt: var(--md-code-bg-color);
+  /* correspondance avec les couleurs du thème Material (suit le mode sombre) */
+  --background: var(--md-default-bg-color);
+  --foreground: var(--md-default-fg-color);
+  --border: var(--md-default-fg-color--lightest);
+  --muted: var(--md-code-bg-color);
+  --muted-foreground: var(--md-default-fg-color--light);
+  --primary: var(--md-accent-fg-color);
+  --primary-foreground: #fff;
+  --accent: var(--md-accent-fg-color--transparent);
+  --ring: var(--md-accent-fg-color);
+  --destructive: #dc2626;
+  --radius: 0.6rem;
+  --font-mono: var(--md-code-font-family);
+  --dbx-border: var(--border);
+  --dbx-muted: var(--muted-foreground);
+  --dbx-bg-alt: var(--muted);
   --dbx-editor-h: minmax(100px, 1fr);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -28,10 +27,10 @@
   max-width: 100%;
   min-height: 440px;
   border: 1px solid var(--dbx-border);
-  border-radius: 0.3rem;
+  border-radius: var(--radius);
   overflow: hidden;
-  font-size: 0.72rem;
-  background: var(--md-default-bg-color);
+  font-size: 0.78rem;
+  background: var(--background);
 }
 .dbx > * {
   min-width: 0;
@@ -61,8 +60,8 @@
   margin-left: auto;
   padding: 0.3rem 0.5rem;
   font: inherit;
-  color: var(--md-default-fg-color);
-  background: var(--md-default-bg-color);
+  color: var(--foreground);
+  background: var(--background);
   border: 1px solid var(--dbx-border);
   border-radius: 0.2rem;
 }
@@ -76,11 +75,12 @@
   overflow-y: auto;
 }
 .dbx-chip {
+  transition: none;
   display: inline-flex;
   align-items: baseline;
   gap: 0.4rem;
   padding: 0.25rem 0.6rem;
-  background: var(--md-default-bg-color);
+  background: var(--background);
   border: 1px solid var(--dbx-border);
   border-radius: 1rem;
 }
@@ -92,12 +92,13 @@
   font-size: 0.62rem;
 }
 .dbx-chip:hover {
-  border-color: var(--md-accent-fg-color);
+  border-color: var(--ring);
 }
 .dbx-chip.is-active {
-  color: var(--md-primary-bg-color);
-  background: var(--md-primary-fg-color);
-  border-color: var(--md-primary-fg-color);
+  color: var(--primary-foreground) !important;
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
+  opacity: 1 !important;
 }
 .dbx-chip.is-active small {
   color: inherit;
@@ -105,10 +106,10 @@
 }
 
 .dbx-panel {
-  max-height: 6.5rem;
+  max-height: 7.5rem;
   padding: 0.5rem 0.7rem 0.6rem;
   overflow: auto;
-  background: var(--md-default-bg-color);
+  background: var(--background);
   border-top: 1px solid var(--dbx-border);
 }
 .dbx-panel[hidden] {
@@ -138,7 +139,7 @@
   border-radius: 0.2rem;
 }
 .dbx-col:hover {
-  border-color: var(--md-accent-fg-color);
+  border-color: var(--ring);
 }
 .dbx-col small {
   color: var(--dbx-muted);
@@ -164,7 +165,7 @@
   border-radius: 0.25rem 0.25rem 0 0;
 }
 .dbx-tab.is-active {
-  background: var(--md-default-bg-color);
+  background: var(--background);
   border-color: var(--dbx-border);
   margin-bottom: -1px;
   padding-bottom: 1px;
@@ -187,7 +188,7 @@
 }
 .dbx-tab-close:hover,
 .dbx-tab-add:hover {
-  color: var(--md-accent-fg-color);
+  color: var(--ring);
 }
 .dbx-tab-add {
   align-self: center;
@@ -210,7 +211,7 @@
 }
 .dbx-btn {
   padding: 0.3rem 0.7rem;
-  background: var(--md-default-bg-color);
+  background: var(--background);
   border: 1px solid var(--dbx-border);
   border-radius: 0.2rem;
 }
@@ -218,16 +219,16 @@
   padding: 0.15rem 0.5rem;
 }
 .dbx-btn:hover:not(:disabled) {
-  border-color: var(--md-accent-fg-color);
+  border-color: var(--ring);
 }
 .dbx-btn:disabled {
   opacity: 0.5;
   cursor: default;
 }
 .dbx-btn-primary {
-  color: var(--md-primary-bg-color) !important;
-  background: var(--md-primary-fg-color);
-  border-color: var(--md-primary-fg-color);
+  color: var(--primary-foreground) !important;
+  background: var(--primary);
+  border-color: var(--primary);
 }
 
 /* ---------- éditeur ---------- */
@@ -240,12 +241,12 @@
   height: 100%;
   box-sizing: border-box;
   padding: 0.7rem 0.8rem;
-  font-family: var(--md-code-font-family, monospace);
+  font-family: var(--font-mono, monospace);
   font-size: 0.8rem;
   line-height: 1.55;
   tab-size: 2;
-  color: var(--md-code-fg-color);
-  background: var(--md-default-bg-color);
+  color: var(--foreground);
+  background: var(--background);
   border: 0;
   outline: none;
   resize: none;
@@ -259,7 +260,7 @@
   touch-action: none;
 }
 .dbx-split:hover {
-  background: var(--md-accent-fg-color--transparent);
+  background: var(--accent);
 }
 
 /* ---------- résultats : le tableau défile dans sa zone, jamais dans la page ---------- */
@@ -275,10 +276,10 @@
   border-bottom: 1px solid var(--dbx-border);
 }
 .dbx-result-bar[data-kind="ok"] {
-  color: var(--md-default-fg-color);
+  color: var(--foreground);
 }
 .dbx-result-bar[data-kind="error"] {
-  color: #c62828;
+  color: var(--destructive);
   font-weight: 700;
 }
 .dbx-result-body {
@@ -292,8 +293,8 @@
   margin: 0;
   padding: 0.8rem;
   white-space: pre-wrap;
-  color: #c62828;
-  font-family: var(--md-code-font-family, monospace);
+  color: var(--destructive);
+  font-family: var(--font-mono, monospace);
   font-size: 0.72rem;
 }
 
@@ -318,7 +319,7 @@
   background: var(--dbx-bg-alt);
 }
 .dbx-grid tbody tr:hover {
-  background: var(--md-accent-fg-color--transparent);
+  background: var(--accent);
 }
 .dbx-grid .dbx-num {
   text-align: right;
