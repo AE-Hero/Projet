@@ -1,0 +1,89 @@
+.dbx-status {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--md-default-fg-color--lighter);
+  background: var(--md-code-bg-color);
+}
+.dbx-status[data-kind="ok"] {
+  border-left-color: #2e7d32;
+}
+.dbx-status[data-kind="error"] {
+  border-left-color: #c62828;
+}
+
+.dbx-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 700px) {
+  .dbx-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dbx-layout aside h4 {
+  margin: 0 0 0.5rem;
+}
+
+.dbx-table {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+  color: var(--md-default-fg-color);
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+}
+.dbx-table:hover {
+  border-color: var(--md-accent-fg-color);
+}
+.dbx-table small {
+  display: block;
+  opacity: 0.7;
+}
+
+#dbx-sql {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem;
+  font-family: var(--md-code-font-family, monospace);
+  font-size: 0.8rem;
+  color: var(--md-code-fg-color);
+  background: var(--md-code-bg-color);
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  resize: vertical;
+}
+
+.dbx-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.5rem 0;
+}
+#dbx-info {
+  font-size: 0.75rem;
+}
+#dbx-info[data-kind="error"] {
+  color: #c62828;
+}
+
+.dbx-result {
+  max-height: 480px;
+  overflow: auto;
+}
+.dbx-result table {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.dbx-null {
+  opacity: 0.5;
+  font-style: italic;
+}
