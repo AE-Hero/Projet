@@ -8,6 +8,7 @@ on:
       - "mkdocs.yml"
       - "docs-requirements.txt"
       - ".github/workflows/docs.yml"
+
   # Reconstruit le site après chaque déploiement preprod / prod
   workflow_run:
     workflows: ["dbt CD deploy preprod", "dbt CD deploy prod"]
@@ -43,12 +44,12 @@ jobs:
           cache: pip
           cache-dependency-path: |
             docs-requirements.txt
-            real_estate_analysis/requirements.txt
+            requirements.txt
 
       - name: Install dependencies
         run: |
           pip install -r docs-requirements.txt
-          pip install -r real_estate_analysis/requirements.txt
+          pip install -r requirements.txt
 
       # Récupère la base prod (pour générer le catalogue dbt) et les boards rendus.
       # Les bases ne sont PAS copiées dans le site : il ne contient que des liens
