@@ -14,3 +14,4 @@ logs/
 .DS*
 **/.vscode/*.json
 .user.yml
+package-lock.yml

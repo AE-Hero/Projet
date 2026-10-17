@@ -1,3 +1,9 @@
+{{
+    config(
+        tags="staging"
+    )
+}}
+
 with source as (
     select
         *,

@@ -1,0 +1,114 @@
+name: Docs site (MkDocs + dbt docs)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "docs-requirements.txt"
+      - ".github/workflows/docs.yml"
+  # Reconstruit le site après chaque déploiement preprod / prod
+  workflow_run:
+    workflows: ["dbt CD deploy preprod", "dbt CD deploy prod"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  DBT_PROFILES_DIR: .
+  DBT_TARGET: prod
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Un déploiement dbt en échec ne doit pas republier le site
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            docs-requirements.txt
+            real_estate_analysis/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          pip install -r docs-requirements.txt
+          pip install -r real_estate_analysis/requirements.txt
+
+      # Récupère la base prod (pour générer le catalogue dbt) et les boards rendus.
+      # Les bases ne sont PAS copiées dans le site : il ne contient que des liens
+      # vers les releases, ce qui évite la limite de taille de GitHub Pages.
+      # Absents au tout premier run : on continue sans.
+      - name: Download published DB and boards
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p real_estate_analysis/_downloads
+          gh release download db-prod --pattern "prod.duckdb" \
+            --dir real_estate_analysis --clobber || echo "Pas de base prod publiée."
+          gh release download db-prod --pattern "charts-prod.tar.gz" \
+            --dir real_estate_analysis/_downloads --clobber || true
+          gh release download db-preprod --pattern "charts-preprod.tar.gz" \
+            --dir real_estate_analysis/_downloads --clobber || true
+
+      # La doc dbt a besoin de la base prod pour générer le catalogue
+      - name: Generate dbt docs
+        working-directory: real_estate_analysis
+        run: |
+          dbt deps
+          if [ -f prod.duckdb ]; then
+            dbt docs generate
+          else
+            echo "::warning::prod.duckdb absent, doc dbt non générée."
+          fi
+
+      - name: Build MkDocs site
+        run: mkdocs build -d site
+
+      - name: Assemble site
+        run: |
+          if [ -f real_estate_analysis/target/index.html ]; then
+            mkdir -p site/dbt-docs
+            cp real_estate_analysis/target/index.html \
+               real_estate_analysis/target/manifest.json \
+               real_estate_analysis/target/catalog.json site/dbt-docs/
+          fi
+          for env in prod preprod; do
+            archive="real_estate_analysis/_downloads/charts-${env}.tar.gz"
+            if [ -f "$archive" ]; then
+              mkdir -p "site/charts/${env}"
+              tar -xzf "$archive" -C "site/charts/${env}"
+            fi
+          done
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

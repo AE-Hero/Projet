@@ -1,0 +1,90 @@
+name: 🧪 CI - lint
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "real_estate_analysis/**"
+      - "requirements.txt"
+      - ".github/workflows/ci-lint.yml"
+      - ".github/scripts/**"
+  workflow_dispatch:
+
+concurrency:
+  group: dbt-ci-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  DBT_PROFILES_DIR: .
+  DBT_TARGET: ci
+
+defaults:
+  run:
+    working-directory: real_estate_analysis
+
+jobs:
+  lint:
+    name: SQL lint (SQLFluff)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt      # racine du repo
+
+      - name: Install dependencies
+        run: pip install -r ../requirements.txt        # l'étape s'exécute dans real_estate_analysis/
+
+      - name: dbt deps
+        run: dbt deps
+
+      # On ne lint que les fichiers SQL modifiés dans la PR.
+      # La sortie JSON alimente le résumé, le commentaire et les annotations ;
+      # l'étape ne bloque pas, c'est la dernière étape qui fait échouer le job.
+      - name: Lint changed SQL files
+        id: lint
+        continue-on-error: true
+        run: |
+          git diff -z --name-only --relative --diff-filter=ACMR \
+            origin/${{ github.base_ref }}...HEAD -- 'models/*.sql' 'tests/*.sql' > changed.txt
+          if [ ! -s changed.txt ]; then
+            echo "Aucun fichier SQL modifié, lint ignoré."
+            echo "[]" > lint.json
+            exit 0
+          fi
+          xargs -0 sqlfluff lint --format json < changed.txt > lint.json 2> lint.err
+
+      - name: Résumé du lint
+        if: always()
+        run: |
+          python ../.github/scripts/format-ci-lint.py --path lint.json --err lint.err > summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          # Annotations sur les lignes concernées (onglet "Files changed")
+          python ../.github/scripts/format-ci-lint.py --path lint.json --annotations \
+            --prefix real_estate_analysis/
+
+      # Commentaire "sticky" : un commentaire distinct par header, mis à jour à chaque push.
+      # Échoue silencieusement pour les PR depuis un fork (token en lecture seule).
+      - name: Commentaire sur la PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: sqlfluff
+          path: real_estate_analysis/summary.md
+
+      - name: Échouer si le lint a trouvé des problèmes
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "Le lint SQL a échoué : voir le résumé ou le commentaire de la PR."
+          exit 1

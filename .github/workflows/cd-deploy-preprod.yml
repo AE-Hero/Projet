@@ -1,0 +1,105 @@
+name: dbt CD deploy preprod
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "real_estate_analysis/**"
+      - ".github/workflows/cd-deploy-preprod.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: dbt-cd-preprod
+  cancel-in-progress: false
+
+permissions:
+  contents: write # nécessaire pour créer / mettre à jour la release db-preprod
+
+env:
+  DBT_PROFILES_DIR: .
+  DBT_TARGET: preprod
+
+defaults:
+  run:
+    working-directory: real_estate_analysis
+
+jobs:
+  deploy:
+    name: Build & publish preprod DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: real_estate_analysis/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: Download DVF data
+        run: dbt run-operation load_dvf
+
+      - name: dbt build (preprod)
+        run: dbt build --exclude package:dbt_project_evaluator
+
+      # Publication de la base : release "db-preprod", fichier remplacé à chaque déploiement
+      - name: Publish preprod DB as release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view db-preprod >/dev/null 2>&1 || \
+            gh release create db-preprod --prerelease --latest=false \
+              --title "Base de preprod (DVF)" \
+              --notes "Dernière base DuckDB construite sur main. Remplacée à chaque déploiement."
+          gh release upload db-preprod preprod.duckdb --clobber
+
+      - name: Upload dbt artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbt-artifacts-preprod
+          path: |
+            real_estate_analysis/target/manifest.json
+            real_estate_analysis/target/run_results.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      # dbt Charts (CLI dct) : non bloquant, la compatibilité DuckDB n'est pas confirmée.
+      - name: Install dbt Charts
+        id: charts_install
+        continue-on-error: true
+        run: pip install dbt-charts
+
+      - name: Validate & render boards
+        id: charts_render
+        if: steps.charts_install.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if [ ! -d charts ]; then
+            echo "Pas de dossier charts/, étape ignorée."
+            exit 0
+          fi
+          dct validate
+          mkdir -p charts_out
+          for board in charts/*.yml charts/*.yaml; do
+            [ -e "$board" ] || continue
+            dct render "$board" --format html > "charts_out/$(basename "${board%.*}").html"
+          done
+
+      - name: Publish rendered boards as release asset
+        if: steps.charts_render.outcome == 'success'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -d charts_out ] && [ "$(ls -A charts_out)" ]; then
+            tar -czf charts-preprod.tar.gz -C charts_out .
+            gh release upload db-preprod charts-preprod.tar.gz --clobber
+          fi
