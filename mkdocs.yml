@@ -52,10 +52,10 @@ validation:
 
 nav:
   - Accueil: index.md
-  - Dashboards: dashboards.md
-  - Documentation dbt: dbt-docs.md
-  - Qualité des données: qualite-donnees.md
-  - Explorateur SQL: explorer.md
+  - 📊 Dashboards: dashboards.md
+  - 📒 Documentation dbt: dbt-docs.md
+  - 🔍 Qualité des données: qualite-donnees.md
+  - 🧭 Explorateur SQL: explorer.md
 
 extra:
   generator: false
