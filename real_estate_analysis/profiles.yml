@@ -48,3 +48,30 @@ real_estate_analysis:
         - spatial
       settings:
         memory_limit: 4GB
+
+elementary:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: duckdb
+      path: dev.duckdb
+      threads: 4
+      schema: main_elementary
+
+    preprod:
+      type: duckdb
+      path: preprod.duckdb
+      threads: 4
+      schema: main_elementary
+
+    prod:
+      type: duckdb
+      path: prod.duckdb
+      threads: 4
+      schema: main_elementary
+
+    ci:
+      type: duckdb
+      path: ci.duckdb
+      threads: 4
+      schema: main_elementary
