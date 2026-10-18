@@ -2,3 +2,4 @@ dbt-core==1.9.11
 dbt-duckdb==1.9.6
 sqlfluff==3.5.0
 sqlfluff-templater-dbt==3.5.0
+elementary-data[duckdb]==0.26.1
