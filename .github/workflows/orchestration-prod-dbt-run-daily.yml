@@ -1,0 +1,44 @@
+name: 🗓️ Orchestration Prod - dbt run daily
+
+# Chaque jour, dbt tourne sur la base prod (modèles, tests, Elementary),
+# puis la base mise à jour est republiée dans la release db-prod.
+# Les résultats des tests et d'Elementary sont dans la base (schéma *_elementary).
+
+on:
+  schedule:
+    - cron: "47 5 * * *" # tous les jours à 05:47 UTC (après la preprod)
+  workflow_dispatch:
+
+permissions:
+  contents: write # republier la base dans la release
+
+concurrency:
+  group: prod-db
+  cancel-in-progress: false
+
+jobs:
+  dbt-daily:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DBT_TARGET: prod
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Télécharger la base prod
+        run: gh release download db-prod --pattern prod.duckdb --dir real_estate_analysis
+
+      - name: dbt build (modèles, tests, Elementary)
+        working-directory: real_estate_analysis
+        run: |
+          dbt deps
+          dbt build --exclude package:dbt_project_evaluator
+
+      - name: Republier la base
+        if: always()
+        run: gh release upload db-prod real_estate_analysis/prod.duckdb --clobber

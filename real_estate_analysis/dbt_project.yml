@@ -37,6 +37,10 @@ models:
     exposures:
       +materialized: table
 
+  # elementary setup
+  elementary:
+    +schema: elementary
+
 # dbt-project-evaluator setup
 data_tests:
   dbt_project_evaluator:
