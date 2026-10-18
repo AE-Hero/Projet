@@ -104,9 +104,13 @@ def build_elementary(project: Path, env: str, out: Path) -> None:
             "--profiles-dir", ".",
             "--profile-target", env,
             "--file-path", str(report),
+            "--days-back", "30",
             "--open-browser", "false",
         ],
         cwd=project,
+        # dbt change de dossier de travail : le profil `elementary` doit recevoir
+        # le chemin ABSOLU de la base (variable EDR_DB_PATH), sinon DuckDB crée une base vide.
+        env={**os.environ, "EDR_DB_PATH": str((project / f"{env}.duckdb").resolve())},
     )
     if not report.exists():
         raise FileNotFoundError("edr n'a pas produit de rapport")

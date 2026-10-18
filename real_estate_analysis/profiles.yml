@@ -54,24 +54,21 @@ elementary:
   outputs:
     dev:
       type: duckdb
-      path: dev.duckdb
+      path: "{{ env_var('EDR_DB_PATH', 'dev.duckdb') }}"
       threads: 4
       schema: main_elementary
-
     preprod:
       type: duckdb
-      path: preprod.duckdb
+      path: "{{ env_var('EDR_DB_PATH', 'preprod.duckdb') }}"
       threads: 4
       schema: main_elementary
-
     prod:
       type: duckdb
-      path: prod.duckdb
+      path: "{{ env_var('EDR_DB_PATH', 'prod.duckdb') }}"
       threads: 4
       schema: main_elementary
-
     ci:
       type: duckdb
-      path: ci.duckdb
+      path: "{{ env_var('EDR_DB_PATH', 'ci.duckdb') }}"
       threads: 4
       schema: main_elementary
