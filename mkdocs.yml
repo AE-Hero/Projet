@@ -17,7 +17,7 @@ theme:
   name: material
   language: fr
   favicon: assets/favicon.svg
-  logo: assets/logo.svg
+  logo: assets/favicon.svg
   font:
     text: Inter
     code: JetBrains Mono
