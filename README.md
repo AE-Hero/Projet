@@ -1,14 +1,18 @@
 # Projet fil rouge AE Hero : DVF
 
-Bienvenue dans ton projet. Tu pars de la donnée publique **DVF** (Demandes de valeurs foncières, transactions immobilières) et tu construis ta propre modélisation avec dbt et DuckDB, de la donnée brute jusqu'au dashboard.
+Bienvenue dans ton projet.
+
+Tu pars de la donnée publique **DVF** (Demandes de valeurs foncières, transactions immobilières) et tu construis ta propre modélisation avec dbt et DuckDB, de la donnée brute jusqu'au dashboard, avec une chaîne de CI/CD complète comme en entreprise.
 
 > Il n'y a pas de solution unique. Tout le monde part de la même source, mais **ta modélisation est la tienne**.
 
 ## Ce que tu vas construire
 
 - Une chaîne de transformation dbt (staging → intermediate → marts) sur DuckDB
-- Des tests de qualité de données et une CI qui passe
-- Une documentation publiée (MkDocs + dbt docs) sur GitHub Pages
+- Des tests de qualité de données et une CI qui passe (lint SQL, `dbt build`, revue de la structure du projet)
+- Un déploiement automatique en **preprod** (à chaque push sur `main`) puis en **prod** (à chaque version)
+- Un suivi quotidien de la qualité des données avec **Elementary**
+- Un **site web** publié sur GitHub Pages: documentation, dashboards, documentation dbt, rapport de qualité et explorateur SQL dans le navigateur
 - Un dashboard qui répond à des questions métier
 
 Les consignes, les questions métier et les critères d'évaluation sont dans la formation : <lien vers la page du projet>.
@@ -44,28 +48,20 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure dbt
+`requirements.txt` installe dbt, DuckDB, SQLFluff et la CLI Elementary. Les dépendances du site (MkDocs) sont dans `docs-requirements.txt` : tu n'en as besoin que pour prévisualiser le site en local.
 
-Le projet dbt se trouve dans `real_estate_analysis/`. Crée `real_estate_analysis/profiles.yml` :
+### 3. Le profil dbt
 
-```yaml
-real_estate_analysis:
-  target: dev
-  outputs:
-    dev:
-      type: duckdb
-      path: dev.duckdb
-      threads: 4
-      schema: main
-      extensions:
-        - parquet
-        - httpfs    # lecture des fichiers DVF en ligne
-        - spatial   # géométries IRIS (st_geomfromtext, st_xmin...)
-      settings:
-        memory_limit: 4GB
-```
+Le projet dbt se trouve dans `real_estate_analysis/`. Son `profiles.yml` est **versionné** : il ne contient aucun secret (des bases DuckDB locales) et la CI l'utilise. Il définit quatre cibles, une par environnement :
 
-`profiles.yml` est ignoré par Git : ne le commite pas.
+| Cible | Base | Utilisée pour |
+|---|---|---|
+| `dev` | `dev.duckdb` | ton travail en local (cible par défaut) |
+| `ci` | `ci.duckdb` | la CI sur les pull requests |
+| `preprod` | `preprod.duckdb` | le déploiement sur `main` |
+| `prod` | `prod.duckdb` | le déploiement par version |
+
+La cible se choisit avec la variable `DBT_TARGET` (ou `--target`). Un second profil, `elementary`, sert uniquement à générer le rapport de qualité.
 
 ### 4. Lance dbt
 
@@ -132,31 +128,90 @@ dbt run-operation load_dvf --args '{force: true}'
 │   ├── snapshots/           # historisation des données qui changent
 │   ├── tests/               # tests singuliers
 │   ├── dbt_project.yml      # hooks on-run-start et vars de chargement
-│   ├── packages.yml
-│   └── profiles.yml         # à créer, non commité
-├── docs/                    # documentation MkDocs
-├── .github/workflows/       # CI et publication de la doc
-└── requirements.txt
+│   ├── packages.yml         # dbt-project-evaluator, Elementary
+│   └── profiles.yml         # cibles dev / ci / preprod / prod
+├── docs/                    # pages et style du site (MkDocs Material)
+├── mkdocs.yml               # configuration du site
+├── .github/
+│   ├── workflows/           # CI et CD (voir ci-dessous)
+│   └── scripts/             # construction du site, export Parquet, …
+├── requirements.txt         # dbt, DuckDB, SQLFluff, Elementary
+└── docs-requirements.txt    # MkDocs et son thème
 ```
 
 ## Comment travailler
 
 1. Crée une **branche** par étape ou par fonctionnalité.
-2. Ouvre une **Pull Request** vers `main` : la CI lance `dbt build` automatiquement.
+2. Ouvre une **Pull Request** vers `main` : la CI se lance automatiquement et commente la PR.
 3. Fusionne seulement quand la CI est verte.
 4. Garde des PR petites (une idée par PR).
 
-## Documentation et dashboard
+## CI/CD : ce qui tourne tout seul
 
-- **MkDocs** (`docs/`) : explique tes choix d'architecture et de modélisation.
-- **dbt docs** : lineage, description des modèles et des colonnes, générée automatiquement.
-- **Dashboard** : <instructions pour dbt-chart>.
+Tu n'as rien à lancer : les workflows (dossier `.github/workflows/`, onglet **Actions** sur GitHub) se déclenchent seuls.
 
-Publication sur GitHub Pages :
+| Quand | Ce qui se passe |
+|---|---|
+| **Pull request** | Lint **SQLFluff**, `dbt build` avec tests sur la cible `ci`, revue de la structure du projet avec **dbt-project-evaluator** (les écarts font échouer la CI). Les résultats sont commentés dans la PR. |
+| **Push sur `main`** | Déploiement en **preprod** : `dbt build` sur `preprod`, la base `preprod.duckdb` et les dashboards sont publiés dans la release `db-preprod`, puis le site est reconstruit. |
+| **Version (tag `v*`)** | Déploiement en **prod**, même principe avec la release `db-prod`. |
+| **Tous les jours** | « dbt run daily » : `dbt build` sur preprod (et prod), tests et **Elementary** inclus, puis republication de la base. |
+| **Changement de la doc ou du site** | Reconstruction et publication du site sur GitHub Pages. |
 
-1. Va dans **Settings → Pages**.
-2. Choisis **Source : GitHub Actions**.
-3. Pousse sur `main` : le workflow publie la doc.
+### Publier en production
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+### Premiers pas sur GitHub
+
+Dans ton repo, avant le premier push sur `main` :
+
+1. **Settings → Pages** : choisis **Source : GitHub Actions**.
+2. **Settings → Actions → General** : active les workflows, et dans *Workflow permissions* choisis **Read and write permissions** (les déploiements publient les bases dans des releases).
+3. Après le premier déploiement, les workflows planifiés (« dbt run daily ») ne démarrent que si les Actions sont activées sur ton repo. Si tu as créé ton repo depuis un template, ouvre l'onglet **Actions** et active-les.
+
+Les workflows quotidiens téléchargent la base d'une release existante : ils échouent tant que le premier déploiement n'a pas eu lieu.
+
+## Le site
+
+Une fois publié, ton site est à `https://<ton-pseudo>.github.io/<ton-repo>/`, avec **deux versions** :
+
+- `/preprod/` : reflète la branche `main`
+- `/prod/` : reflète la dernière version publiée (vide tant que tu n'as pas poussé de tag `v*`)
+
+Chaque version contient :
+
+| Page | Contenu |
+|---|---|
+| **Accueil** | Présentation du projet, stack, organisation, workflow |
+| **Dashboards** | Tes dashboards (dbt Charts), intégrés dans la page |
+| **Documentation dbt** | Lineage, description des modèles et colonnes (`dbt docs`) |
+| **Qualité des données** | Rapport **Elementary** : résultats des tests, historique des exécutions |
+| **Explorateur SQL** | Requêtes SQL dans le navigateur (DuckDB-WASM) sur les tables publiées en Parquet |
+
+Pour personnaliser les pages, modifie `docs/` (texte, pages) et `docs/stylesheets/` (couleurs et mise en page), puis pousse sur `main`.
+
+### Prévisualiser en local
+
+```bash
+pip install -r docs-requirements.txt
+mkdocs serve
+```
+
+Les pages Dashboards, Documentation dbt et Qualité des données n'affichent leur contenu que sur le site publié, car il est généré par le déploiement.
+
+### L'explorateur SQL
+
+Il lit les tables en Parquet publiées avec le site. Les tables volumineuses sont **échantillonnées**. Pour travailler sur la base complète, télécharge `preprod.duckdb` ou `prod.duckdb` depuis les releases `db-preprod` / `db-prod` et ouvre-la avec DuckDB.
+
+## Qualité des données
+
+- **Tests dbt** : à écrire dans tes `schema.yml` et dans `tests/`. Ils tournent à chaque `dbt build`, en CI et au quotidien.
+- **dbt-project-evaluator** : vérifie les bonnes pratiques de structure (nommage, dépendances, documentation). En CI, ses écarts font échouer le build.
+- **Elementary** : enregistre dans la base les résultats de chaque exécution (schéma `main_elementary`). Le rapport est sur la page *Qualité des données*. Il se remplit après la première exécution complète avec tests. Tu peux y ajouter des tests de détection d'anomalies (`elementary.volume_anomalies`, `elementary.schema_changes`, …).
 
 ## Ce que tu dois rendre
 
@@ -165,7 +220,7 @@ Publication sur GitHub Pages :
 - Le repo doit contenir :
   - un **README** (objectif, architecture, comment relancer le projet)
   - tes **tests dbt** et ta **CI** qui passent
-  - un **dashboard** fonctionnel, publié avec la documentation
+  - un **dashboard** fonctionnel, publié avec le site
   - une courte section sur tes **choix de modélisation** et leurs compromis
 
 Les critères d'évaluation complets sont dans la formation.
@@ -174,23 +229,30 @@ Les critères d'évaluation complets sont dans la formation.
 
 Passe par `PRE_PUBLISH_CHECKLIST.md`. En résumé :
 
-- [ ] Aucun secret, jeton ou fichier `profiles.yml`
+- [ ] Aucun secret ni jeton dans le repo (le `profiles.yml` fourni n'en contient pas)
 - [ ] Aucun fichier de données ni fichier `.duckdb` commité
-- [ ] README complet, CI verte, GitHub Pages activé
+- [ ] README complet, CI verte, GitHub Pages activé, site `/preprod/` en ligne
 - [ ] Aucun contenu réservé aux goodies de la formation
 
 ## Problèmes fréquents
 
 | Symptôme | Piste |
 |---|---|
-| `Could not find profile named ...` | Tu n'as pas créé `real_estate_analysis/profiles.yml`, ou le nom du profil ne correspond pas à `dbt_project.yml`. |
+| `Could not find profile named 'real_estate_analysis'` | Tu lances dbt hors de `real_estate_analysis/`, ou le nom du profil ne correspond pas à `dbt_project.yml`. |
+| `Could not find profile named 'elementary'` | Le profil `elementary` manque dans `profiles.yml` : il est nécessaire pour générer le rapport de qualité. |
 | `Catalog Error: Table with name dvf does not exist` | Le hook de chargement n'a pas tourné : lance `dbt build` depuis `real_estate_analysis/`, ou `dbt run-operation load_dvf`. |
-| `... is not in the catalog, but it exists in the spatial extension` | Ajoute `spatial` dans `extensions` de ton `profiles.yml`. |
+| `... is not in the catalog, but it exists in the spatial extension` | Ajoute `spatial` dans `extensions` du profil de ta cible. |
 | `Could not set lock on file ... dev.duckdb` | Ferme les autres connexions à la base (UI DuckDB, extension VS Code), puis relance. |
-| `dbt: command not found` | L'environnement virtuel n'est pas activé. |
+| `dbt: command not found` ou `edr: command not found` | L'environnement virtuel n'est pas activé, ou `pip install -r requirements.txt` n'a pas été lancé. |
 | Le téléchargement DVF échoue | Vérifie ta connexion et l'URL `files.data.gouv.fr/geo-dvf/latest/csv/`, puis relance avec `--vars '{dvf_reload: true}'`. |
 | La CI échoue mais `dbt build` passe en local | Compare les versions de Python et des paquets avec `requirements.txt`. |
-| La doc n'apparaît pas | Vérifie que GitHub Pages est configuré sur **GitHub Actions** et que le workflow est vert. |
+| La CI SQLFluff échoue | Lance `sqlfluff fix` sur le fichier indiqué, relis la différence, puis recommite. |
+| La CI échoue sur dbt-project-evaluator | Lis la liste des écarts dans le commentaire de la PR : chaque ligne dit quel modèle corriger et pourquoi. |
+| Le site n'apparaît pas | Vérifie que GitHub Pages est configuré sur **GitHub Actions** et que le workflow « Deploy site » est vert. |
+| `/prod/` est vide | Normal tant qu'aucun tag `v*` n'a été poussé et que le déploiement prod n'a pas fini. |
+| L'explorateur affiche « Aucune donnée publiée » | Le déploiement n'a pas encore publié les tables : regarde le log *Build one site per environment* du workflow « Deploy site ». |
+| La page *Qualité des données* affiche « Pas encore disponible » | Le rapport n'a pas pu être généré : regarde l'avertissement `rapport Elementary non généré` dans le même log. |
+| Le workflow « dbt run daily » échoue au téléchargement | La release `db-preprod` (ou `db-prod`) n'existe pas encore : fais d'abord un push sur `main` (ou un tag `v*`) et attends la fin du déploiement. |
 
 Une question ? Pose-la sur la communauté AE Hero, avec le message d'erreur complet.
 
