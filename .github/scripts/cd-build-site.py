@@ -4,7 +4,7 @@
 Pour chaque environnement (prod, preprod) :
   1. copie les pages de docs/ en remplaçant __ENV__, __OTHER_ENV__ et __REPO__ ;
   2. construit le site MkDocs dans <out>/<env>/ ;
-  3. génère la doc dbt depuis la base de l'environnement (<out>/<env>/dbt-docs/) ;
+  3. génère la doc dbt (<out>/<env>/dbt-docs/) et le rapport Elementary (<out>/<env>/elementary/) ;
   4. exporte les tables en Parquet pour l'explorateur (<out>/<env>/data/) ;
   5. extrait les dashboards dbt Charts (<out>/<env>/charts/) et crée leur page d'accueil :
      un seul board = page d'accueil, plusieurs = liste.
@@ -67,7 +67,6 @@ def build_mkdocs(docs_dir: Path, out: Path, env: str) -> None:
     environment = {
         **os.environ,
         "DOCS_DIR": str(docs_dir),
-        "NO_MKDOCS_2_WARNING": "true",  # bandeau d'avertissement de Material sur MkDocs 2.0
         "SITE_NAME": f"Projet fil rouge - Real Estate Analysis ({env})",
     }
     run([sys.executable, "-m", "mkdocs", "build", "-d", str(out)], env=environment)
@@ -83,6 +82,34 @@ def build_dbt_docs(project: Path, env: str, out: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
     for name in ("index.html", "manifest.json", "catalog.json"):
         shutil.copy2(target / name, dest / name)
+
+
+# ---------------------------------------------------------------- 3 bis : rapport Elementary
+
+
+def build_elementary(project: Path, env: str, out: Path) -> None:
+    """Génère le rapport HTML Elementary depuis les tables *_elementary de la base."""
+    dest = out / "elementary"
+    dest.mkdir(parents=True, exist_ok=True)
+    # Pas de télémétrie ni de navigateur : on veut seulement le fichier HTML.
+    config = Path.home() / ".edr" / "config.yml"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    if not config.exists():
+        config.write_text("anonymous_usage_tracking: false\n", encoding="utf-8")
+    report = (dest / "index.html").resolve()
+    run(
+        [
+            "edr", "report",
+            "--project-dir", ".",
+            "--profiles-dir", ".",
+            "--profile-target", env,
+            "--file-path", str(report),
+            "--open-browser", "false",
+        ],
+        cwd=project,
+    )
+    if not report.exists():
+        raise FileNotFoundError("edr n'a pas produit de rapport")
 
 
 # ---------------------------------------------------------------- 4 : Parquet
@@ -112,7 +139,7 @@ def export_parquet(script: Path, db: Path, out: Path, env: str, schemas: str, ma
 LIST_STYLE = (
     "body{font-family:system-ui,sans-serif;max-width:40rem;margin:3rem auto;padding:0 1rem}"
     "a{display:block;padding:.8rem 1rem;margin:.5rem 0;border:1px solid #ccc;"
-    "border-radius:.4rem;text-decoration:none;color:inherit}a:hover{border-color:#b04267}"
+    "border-radius:.4rem;text-decoration:none;color:inherit}a:hover{border-color:#3f51b5}"
 )
 
 
@@ -176,6 +203,13 @@ def add_placeholders(out: Path, env: str) -> None:
             "Documentation dbt",
             f"Pas encore disponible : aucun déploiement {env} n'a généré la documentation.",
         )
+    if not (out / "elementary" / "index.html").exists():
+        write_placeholder(
+            out / "elementary",
+            "Qualité des données (Elementary)",
+            f"Pas encore disponible : le rapport Elementary {env} n'a pas été généré "
+            "(il faut qu'un « dbt run daily » ait tourné au moins une fois).",
+        )
     if not (out / "charts" / "index.html").exists():
         write_placeholder(
             out / "charts",
@@ -223,6 +257,10 @@ def build_env(env: str, other: str, args: argparse.Namespace) -> None:
             build_dbt_docs(args.project, env, out)
         except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
             warn(f"{env} : doc dbt non générée ({exc})")
+        try:
+            build_elementary(args.project, env, out)
+        except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
+            warn(f"{env} : rapport Elementary non généré ({exc})")
         if not args.export_script.exists():
             warn(
                 f"{env} : script d'export introuvable ({args.export_script}), "
