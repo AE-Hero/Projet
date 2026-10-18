@@ -13,7 +13,7 @@ on:
 
   # Reconstruit le site après chaque déploiement preprod / prod
   workflow_run:
-    workflows: ["CD - Deploy preprod db & dashboards", "⚙️ CD - Deploy preprod db & dashboards"]
+    workflows: ["CD - Deploy preprod db & dashboards", "⚙️ CD - Deploy prod db & dashboards"]
     types: [completed]
 
   workflow_dispatch:
