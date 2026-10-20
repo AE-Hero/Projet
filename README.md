@@ -1,16 +1,14 @@
 # Projet fil rouge AE Hero : DVF
 
-> Note: il n'y a pas de solution unique. Tout le monde part de la même source, mais **ta modélisation est la tienne**.
+Tu pars de la donnée publique **DVF** (Demandes de valeurs foncières, transactions immobilières), enrichie des **contours IRIS** de l'IGN et de l'INSEE (le découpage en quartiers du département du Nord, le 59), et tu construis ta propre modélisation avec dbt et DuckDB, de la donnée brute jusqu'au dashboard, avec une chaîne de CI/CD complète comme en entreprise.
 
-**Sommaire** : [Ton scénario](#ton-scénario) · [Ce que tu vas construire](#ce-que-tu-vas-construire) · [Démarrage rapide](#démarrage-rapide) · [Comprendre la donnée DVF](#comprendre-la-donnée-dvf) · [Chargement des données](#chargement-des-données) · [Structure](#structure-du-projet) · [Comment travailler](#comment-travailler) · [CI/CD](#cicd--ce-qui-tourne-tout-seul) · [Le site](#le-site) · [Qualité](#qualité-des-données) · [Rendu](#ce-que-tu-dois-rendre) · [Dépannage](#problèmes-fréquents)
+> Il n'y a pas de solution unique. Tout le monde part de la même source, mais **ta modélisation est la tienne**.
+
+**Sommaire** : [Ton scénario](#ton-scénario) · [Ce que tu vas construire](#ce-que-tu-vas-construire) · [Démarrage rapide](#démarrage-rapide) · [Comprendre la donnée](#comprendre-la-donnée) · [Chargement des données](#chargement-des-données) · [Structure](#structure-du-projet) · [Comment travailler](#comment-travailler) · [CI/CD](#cicd--ce-qui-tourne-tout-seul) · [Le site](#le-site) · [Qualité](#qualité-des-données) · [Rendu](#ce-que-tu-dois-rendre) · [Dépannage](#problèmes-fréquents)
 
 ## Ton scénario
 
-**Tu es promoteur immobilier ou marchand de biens**, dans le Nord (59). Tu dois décider où investir, et tu n'as qu'une source de vérité : les transactions passées.
-
-Ton site, compris de ton / tes dashboards, ta documentation et comment tu calcules tes KPIs est l'outil que tu présenterais à ton comité d'investissement (qui doit être à l'aise avec tes calculs).
-
-Tu pars de la donnée publique **DVF** (Demandes de valeurs foncières, transactions immobilières), enrichie des **contours IRIS** de l'IGN et de l'INSEE (le découpage en quartiers du département du Nord, le 59), et tu construis ta propre modélisation avec dbt et DuckDB, de la donnée brute jusqu'au dashboard, avec une chaîne de CI/CD complète comme en entreprise.
+**Tu es promoteur immobilier ou marchand de biens**, dans le Nord (59). Tu dois décider où investir, et tu n'as qu'une source de vérité : les transactions passées. Ton dashboard est l'outil que tu présenterais à ton comité d'investissement.
 
 Choisis ton rôle (ou fais les deux) :
 
@@ -19,7 +17,6 @@ Choisis ton rôle (ou fais les deux) :
 | **Ce que tu fais** | Tu achètes un terrain, tu construis, tu vends des logements neufs | Tu achètes un bien ancien, tu le rénoves, tu le revends |
 | **Ce qui t'intéresse dans DVF** | Les ventes de terrains à bâtir et les ventes en l'état futur d'achèvement (neuf) | Les ventes de maisons et d'appartements anciens, et leurs reventes |
 | **Ta marge apparente** | Prix du neuf au m² − prix du foncier | Prix de revente − prix d'achat, sur un même bien |
-
 
 Les IRIS te servent à raisonner **par quartier** plutôt que par commune : un même marché peut varier fortement d'un quartier de Lille à l'autre.
 
@@ -116,6 +113,8 @@ Clique sur **Use this template → Create a new repository** (en haut de cette p
 git clone git@github.com:<ton-pseudo>/<ton-repo>.git
 cd <ton-repo>
 ```
+
+---
 
 ### 2. Crée l'environnement avec uv
 
@@ -221,6 +220,8 @@ uv run mkdocs serve
 
 </details>
 
+---
+
 ### 3. Lance dbt
 
 Toutes les commandes dbt se lancent depuis `real_estate_analysis/` :
@@ -232,6 +233,8 @@ dbt build
 ```
 
 `dbt build` charge aussi le seed IRIS. Au premier lancement, la base `dev.duckdb` est **créée** et les données DVF y sont téléchargées automatiquement (`main.dvf`, `main.iris_59`). Tant que ce premier build n'a pas tourné, le fichier n'existe pas.
+
+---
 
 ### 4. Explore la donnée brute
 
@@ -280,6 +283,8 @@ group by all
 order by nb_lignes desc;
 ```
 
+---
+
 ### 5. Les cibles dbt
 
 Le projet dbt se trouve dans `real_estate_analysis/`. Son `profiles.yml` est **versionné** : il ne contient aucun secret (des bases DuckDB locales) et la CI l'utilise. Il définit quatre cibles, une par environnement :
@@ -293,11 +298,17 @@ Le projet dbt se trouve dans `real_estate_analysis/`. Son `profiles.yml` est **v
 
 La cible se choisit avec la variable `DBT_TARGET` (ou `--target`). Un second profil, `elementary`, sert uniquement à générer le rapport de qualité.
 
-## Comprendre la donnée DVF
+---
+
+## Comprendre la donnée
+
+Deux sources alimentent le projet : **DVF** (les transactions) et les **contours IRIS** (les quartiers). Comprends chacune avant de modéliser.
+
+### 1. DVF
 
 DVF recense les mutations à titre onéreux (ventes, ventes en l'état futur d'achèvement, adjudications, échanges, expropriations…) des cinq dernières années, publiées par la DGFiP. Le fichier utilisé ici est la version géolocalisée (`geo-dvf`) : chaque ligne porte déjà une latitude et une longitude quand le géocodage a réussi.
 
-### Le grain : ce n'est pas une ligne par vente
+#### Le grain : ce n'est pas une ligne par vente
 
 C'est le point qui piège le plus. Une **mutation** (`id_mutation`) est une transaction. Elle peut contenir plusieurs dispositions, plusieurs parcelles, plusieurs locaux (maison, appartement, dépendance…) et plusieurs natures de culture.
 
@@ -355,55 +366,7 @@ Des idées pour démarrer, adapte-les à ton modèle :
 
 </details>
 
-## Chargement des données
-
-| Données | Table | Chargement |
-|---|---|---|
-| DVF | `main.dvf` (source) | Macro `load_dvf` en `on-run-start`, téléchargement depuis `files.data.gouv.fr/geo-dvf` |
-| Contours IRIS du 59 | `main.iris_59` (seed) | `dbt seed` / `dbt build`, depuis `seeds/iris_59.csv` |
-
-<details>
-<summary>DVF : fonctionnement du chargement et changement de périmètre</summary>
-
-La macro `load_dvf` est appelée en `on-run-start` (`dbt_project.yml`) avant chaque `dbt run` / `dbt build` / `dbt test` :
-
-- Elle ne charge que si `main.dvf` **n'existe pas encore** : les lancements suivants ne retéléchargent rien.
-- La table est recréée à chaque chargement : pas de doublons.
-- Les données ne sont **jamais** commitées (`*.duckdb` est ignoré par Git).
-
-Le périmètre se règle avec des vars, dans `dbt_project.yml` ou en ligne de commande :
-
-| Var | Défaut | Rôle |
-|---|---|---|
-| `dvf_departements` | `["59"]` | Départements DVF (la Corse se code `"2A"` / `"2B"`) |
-| `dvf_years` | `[2022, 2023]` | Années DVF (2021 à 2025 disponibles) |
-| `dvf_reload` | `false` | Force le rechargement de `main.dvf` |
-
-```bash
-# Changer de périmètre DVF (le reload est nécessaire si la table existe déjà)
-dbt build --vars '{dvf_reload: true, dvf_departements: ["59", "62"], dvf_years: [2024, 2025]}'
-
-# Charger sans lancer les modèles
-dbt run-operation load_dvf --args '{force: true}'
-```
-
-> **Plus de départements, plus de temps.** Chaque département et chaque année ajoutent du volume : le téléchargement, le `dbt build` et la CI ralentissent en conséquence. Reste sur le 59 tant que ta modélisation n'est pas stable.
-
-</details>
-
-<details>
-<summary>Contours IRIS : ce que contient le seed et ses limites</summary>
-
-`seeds/iris_59.csv` contient les 1 345 IRIS du département 59, extraits des **Contours IRIS** de l'IGN (GeoPackage national, trop lourd pour être commité : 176 Mo).
-
-- Géométries en WGS84, simplifiées à ~10 m et arrondies à 5 décimales (~1 m) : le fichier pèse 1,5 Mo. C'est largement assez précis pour rattacher une transaction à un IRIS.
-- Elles sont stockées en texte (WKT) et converties en géométrie dans `stg_geospacial_coordinates` avec `st_geomfromtext`.
-- Le rattachement transaction → IRIS se fait par jointure spatiale sur `longitude` / `latitude` : les lignes sans coordonnées ne peuvent pas être rattachées. Mesure ce taux et décide quoi en faire.
-- **Le seed ne couvre que le 59.** Si tu ajoutes des départements à `dvf_departements`, il faut régénérer le seed à partir du GeoPackage.
-
-</details>
-
-#### Comprendre les IRIS
+### 2. Les données IRIS
 
 Un **IRIS** (Îlot Regroupé pour l'Information Statistique) est le découpage infra-communal de l'INSEE : un quartier d'environ 2 000 habitants. Les communes de moins de 10 000 habitants sont en général **non découpées** : elles n'ont qu'un seul IRIS, qui couvre toute la commune.
 
@@ -479,6 +442,54 @@ left join iris
 - Un test sur la longueur de `code_iris` (9 caractères)
 - Un test singulier : aucune mutation n'est dupliquée après la jointure spatiale
 - Un seuil d'alerte sur le taux de transactions sans IRIS (par exemple via `dbt_utils.expression_is_true` sur un modèle agrégé)
+
+</details>
+
+## Chargement des données
+
+| Données | Table | Chargement |
+|---|---|---|
+| DVF | `main.dvf` (source) | Macro `load_dvf` en `on-run-start`, téléchargement depuis `files.data.gouv.fr/geo-dvf` |
+| Contours IRIS du 59 | `main.iris_59` (seed) | `dbt seed` / `dbt build`, depuis `seeds/iris_59.csv` |
+
+<details>
+<summary>DVF : fonctionnement du chargement et changement de périmètre</summary>
+
+La macro `load_dvf` est appelée en `on-run-start` (`dbt_project.yml`) avant chaque `dbt run` / `dbt build` / `dbt test` :
+
+- Elle ne charge que si `main.dvf` **n'existe pas encore** : les lancements suivants ne retéléchargent rien.
+- La table est recréée à chaque chargement : pas de doublons.
+- Les données ne sont **jamais** commitées (`*.duckdb` est ignoré par Git).
+
+Le périmètre se règle avec des vars, dans `dbt_project.yml` ou en ligne de commande :
+
+| Var | Défaut | Rôle |
+|---|---|---|
+| `dvf_departements` | `["59"]` | Départements DVF (la Corse se code `"2A"` / `"2B"`) |
+| `dvf_years` | `[2022, 2023]` | Années DVF (2021 à 2025 disponibles) |
+| `dvf_reload` | `false` | Force le rechargement de `main.dvf` |
+
+```bash
+# Changer de périmètre DVF (le reload est nécessaire si la table existe déjà)
+dbt build --vars '{dvf_reload: true, dvf_departements: ["59", "62"], dvf_years: [2024, 2025]}'
+
+# Charger sans lancer les modèles
+dbt run-operation load_dvf --args '{force: true}'
+```
+
+> **Plus de départements, plus de temps.** Chaque département et chaque année ajoutent du volume : le téléchargement, le `dbt build` et la CI ralentissent en conséquence. Reste sur le 59 tant que ta modélisation n'est pas stable.
+
+</details>
+
+<details>
+<summary>Contours IRIS : ce que contient le seed et ses limites</summary>
+
+`seeds/iris_59.csv` contient les 1 345 IRIS du département 59, extraits des **Contours IRIS** de l'IGN (GeoPackage national, trop lourd pour être commité : 176 Mo).
+
+- Géométries en WGS84, simplifiées à ~10 m et arrondies à 5 décimales (~1 m) : le fichier pèse 1,5 Mo. C'est largement assez précis pour rattacher une transaction à un IRIS.
+- Elles sont stockées en texte (WKT) et converties en géométrie dans `stg_geospacial_coordinates` avec `st_geomfromtext`.
+- Le rattachement transaction → IRIS se fait par jointure spatiale sur `longitude` / `latitude` : les lignes sans coordonnées ne peuvent pas être rattachées. Mesure ce taux et décide quoi en faire.
+- **Le seed ne couvre que le 59.** Si tu ajoutes des départements à `dvf_departements`, il faut régénérer le seed à partir du GeoPackage.
 
 </details>
 
@@ -599,19 +610,17 @@ Les pages Dashboards, Documentation dbt et Qualité des données n'affichent leu
 - **dbt-project-evaluator** : vérifie les bonnes pratiques de structure (nommage, dépendances, documentation). En CI, ses écarts font échouer le build.
 - **Elementary** : enregistre dans la base les résultats de chaque exécution (schéma `main_elementary`). Le rapport est sur la page *Qualité des données*. Il se remplit après la première exécution complète avec tests. Tu peux y ajouter des tests de détection d'anomalies (`elementary.volume_anomalies`, `elementary.schema_changes`, …).
 
-Voir aussi [Pièges de qualité à anticiper](#comprendre-la-donnée-dvf) pour les contrôles propres à DVF.
+Voir aussi [Pièges de qualité à anticiper](#comprendre-la-donnée) pour les contrôles propres à DVF.
 
 ## Ce que tu dois rendre
 
-- Le lien vers ton **repo public** : à communiquer sur la plateforme de la formation
-- Date limite : **4 semaines après avoir regardé le dernier module d'AE Hero**
+- Le lien vers ton **repo public** : à communiquer sur la **plateforme AE Hero** pour que les autres formés puissent regarder ton projet et t'aider à le rendre meilleur si besoin
+- Date limite conseillée: **4 semaines après avoir regardé le dernier module d'AE Hero**
 - Le repo doit contenir :
-  - un **README** (objectif, architecture, comment relancer le projet)
+  - un **README** (objectif, architecture, comment lancer le projet)
   - tes **tests dbt** et ta **CI** qui passent
-  - un **dashboard** fonctionnel, publié avec le site, qui répond aux questions de **ton rôle** (promoteur ou marchand de biens)
+  - un / plusieurs **dashboard(s)** fonctionnel(s), publié(s) avec le site, qui répond aux questions de **ton rôle** (promoteur ou marchand de biens)
   - une courte section sur tes **choix de modélisation** et leurs compromis (grain choisi, traitement des prix aberrants et des ventes multi-biens, gestion des coordonnées manquantes)
-
-Les critères d'évaluation complets sont dans la formation.
 
 <details>
 <summary>Avant de rendre un repo public (checklist)</summary>
