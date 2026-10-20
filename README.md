@@ -1,10 +1,92 @@
 # Projet fil rouge AE Hero : DVF
 
-Tu pars de la donnée publique **DVF** (Demandes de valeurs foncières, transactions immobilières) et tu construis ta propre modélisation avec dbt et DuckDB, de la donnée brute jusqu'au dashboard, avec une chaîne de CI/CD complète comme en entreprise.
+> Note: il n'y a pas de solution unique. Tout le monde part de la même source, mais **ta modélisation est la tienne**.
 
-> Il n'y a pas de solution unique. Tout le monde part de la même source, mais **ta modélisation est la tienne**.
+**Sommaire** : [Ton scénario](#ton-scénario) · [Ce que tu vas construire](#ce-que-tu-vas-construire) · [Démarrage rapide](#démarrage-rapide) · [Comprendre la donnée DVF](#comprendre-la-donnée-dvf) · [Chargement des données](#chargement-des-données) · [Structure](#structure-du-projet) · [Comment travailler](#comment-travailler) · [CI/CD](#cicd--ce-qui-tourne-tout-seul) · [Le site](#le-site) · [Qualité](#qualité-des-données) · [Rendu](#ce-que-tu-dois-rendre) · [Dépannage](#problèmes-fréquents)
 
-**Sommaire** : [Ce que tu vas construire](#ce-que-tu-vas-construire) · [Démarrage rapide](#démarrage-rapide) · [Comprendre la donnée DVF](#comprendre-la-donnée-dvf) · [Chargement des données](#chargement-des-données) · [Structure](#structure-du-projet) · [Comment travailler](#comment-travailler) · [CI/CD](#cicd--ce-qui-tourne-tout-seul) · [Le site](#le-site) · [Qualité](#qualité-des-données) · [Rendu](#ce-que-tu-dois-rendre) · [Dépannage](#problèmes-fréquents)
+## Ton scénario
+
+**Tu es promoteur immobilier ou marchand de biens**, dans le Nord (59). Tu dois décider où investir, et tu n'as qu'une source de vérité : les transactions passées.
+
+Ton site, compris de ton / tes dashboards, ta documentation et comment tu calcules tes KPIs est l'outil que tu présenterais à ton comité d'investissement (qui doit être à l'aise avec tes calculs).
+
+Tu pars de la donnée publique **DVF** (Demandes de valeurs foncières, transactions immobilières), enrichie des **contours IRIS** de l'IGN et de l'INSEE (le découpage en quartiers du département du Nord, le 59), et tu construis ta propre modélisation avec dbt et DuckDB, de la donnée brute jusqu'au dashboard, avec une chaîne de CI/CD complète comme en entreprise.
+
+Choisis ton rôle (ou fais les deux) :
+
+| | 🏗️ Promoteur | 🔨 Marchand de biens |
+|---|---|---|
+| **Ce que tu fais** | Tu achètes un terrain, tu construis, tu vends des logements neufs | Tu achètes un bien ancien, tu le rénoves, tu le revends |
+| **Ce qui t'intéresse dans DVF** | Les ventes de terrains à bâtir et les ventes en l'état futur d'achèvement (neuf) | Les ventes de maisons et d'appartements anciens, et leurs reventes |
+| **Ta marge apparente** | Prix du neuf au m² − prix du foncier | Prix de revente − prix d'achat, sur un même bien |
+
+
+Les IRIS te servent à raisonner **par quartier** plutôt que par commune : un même marché peut varier fortement d'un quartier de Lille à l'autre.
+
+### Les KPI
+
+Légende : 🏗️ promoteur · 🔨 marchand de biens · 🏗️🔨 les deux. Tous se calculent **par IRIS et par an** ; les formules sont des points de départ, à toi de les préciser (filtres, seuils, grain).
+
+| KPI | Pour qui | Formule | Colonnes DVF utilisées |
+|---|---|---|---|
+| **Prix médian du foncier** (€/m² de terrain) | 🏗️ | médiane de `valeur_fonciere / surface_terrain`, ventes de terrains à bâtir | `nature_mutation`, `valeur_fonciere`, `surface_terrain` |
+| **Prix médian du neuf** (€/m² bâti) | 🏗️ | médiane de `valeur_fonciere / surface_reelle_bati`, ventes en l'état futur d'achèvement | `nature_mutation`, `valeur_fonciere`, `surface_reelle_bati` |
+| **Marge apparente promoteur** (%) | 🏗️ | (prix du neuf − prix du foncier) / prix du neuf | les deux KPI ci-dessus |
+| **Part de terrains à bâtir** (%) | 🏗️ | mutations de terrains à bâtir / mutations totales | `id_mutation`, `nature_mutation` |
+| **Prix médian de l'ancien** (€/m² bâti) | 🔨 | médiane de `valeur_fonciere / surface_reelle_bati`, ventes de maisons et d'appartements | `type_local`, `valeur_fonciere`, `surface_reelle_bati` |
+| **Plus-value brute apparente** (%) | 🔨 | (prix de revente − prix d'achat) / prix d'achat, sur un même bien | `id_parcelle`, `date_mutation`, `valeur_fonciere` |
+| **Délai de revente** (mois) | 🔨 | médiane de (date de revente − date d'achat) | `id_parcelle`, `date_mutation` |
+| **Taux de reventes rapides** (%) | 🔨 | reventes à moins de 24 mois / ventes de l'ancien | `id_parcelle`, `date_mutation` |
+| **Décote de quartier** (%) | 🔨 | prix médian de l'IRIS / prix médian de sa commune − 1 | `code_commune` + prix médian |
+| **Volume de ventes** | 🏗️🔨 | nombre de `id_mutation` distincts (neuf pour 🏗️, ancien pour 🔨) | `id_mutation`, `nature_mutation` |
+| **Évolution annuelle** (%) | 🏗️🔨 | (médiane de l'année N − médiane de N−1) / médiane de N−1 | `date_mutation` + prix médian |
+
+<details>
+<summary>Pièges par KPI</summary>
+
+- **Médiane, pas moyenne** : les ventes aberrantes et multi-biens faussent une moyenne. Impose un nombre minimum de ventes par IRIS, sinon la médiane n'a pas de sens.
+- **Foncier vs neuf** : le prix du foncier est au m² de **terrain**, celui du neuf au m² **bâti**. Le calcul de marge compare deux unités différentes : c'est une approximation grossière, pas une marge d'opération. La constructibilité réelle (PLU) n'est pas dans DVF.
+- **Neuf** : une vente en bloc ou multi-lots fausse le ratio, et la surface bâtie peut être manquante.
+- **Volume** : compte des `id_mutation` distincts, pas des lignes (voir [Le grain](#le-grain--ce-nest-pas-une-ligne-par-vente)).
+- **Revente** : une parcelle peut regrouper plusieurs biens (immeuble, lotissement). Une revente n'est fiable que si tu identifies bien **le même bien**.
+- **Période courte** : avec `dvf_years` à 2022-2023, tu ne vois que des reventes de moins de 2 ans, ce qui biaise le délai et la plus-value vers les reventes rapides. Étends les années si tu veux étudier la revente.
+- **Décote** : les IRIS de type `Z` couvrent toute la commune, donc aucune décote n'est possible pour eux.
+- **Marge brute** : ni les coûts de travaux, ni les frais, ni la fiscalité ne sont dans DVF.
+
+</details>
+
+<details>
+<summary>Exemples de questions métier (à adapter, ce ne sont pas des consignes)</summary>
+
+**Promoteur**
+
+- Dans quels IRIS se vendent des terrains à bâtir, et à quel prix au m² de terrain ?
+- Comment le prix du neuf au m² se compare-t-il à celui de l'ancien dans le même quartier ?
+- Quels quartiers combinent un marché actif (volume de ventes) et un écart de prix favorable entre foncier et neuf ?
+
+**Marchand de biens**
+
+- Quels quartiers ont un marché de l'ancien liquide (beaucoup de transactions) et un prix au m² qui progresse ?
+- Quels biens ont été revendus deux fois en peu de temps, et avec quelle plus-value apparente ?
+- Où trouve-t-on les écarts de prix les plus marqués entre IRIS voisins ?
+
+**Dans tous les cas** : dis ce que ta donnée ne permet pas de conclure. Les coûts de travaux, la constructibilité réelle d'un terrain ou l'état d'un bien ne sont pas dans DVF : ta marge est une marge **apparente**, pas un résultat d'opération.
+
+</details>
+
+<details>
+<summary>Pour aller plus loin : sources complémentaires (optionnel)</summary>
+
+Ces sources ne sont pas chargées dans le projet. Elles permettraient d'affiner l'analyse, à toi de décider si elles valent l'effort et le temps de build en plus :
+
+- **Permis de construire** (base Sitadel, ministère de la Transition écologique) : pour voir l'offre neuve en cours de développement par commune.
+- **Urbanisme et PLU** (Géoportail de l'urbanisme) : pour savoir ce qui est réellement constructible. Plus lourd à exploiter.
+- **DPE** (ADEME) : pour repérer les logements énergivores, donc des opportunités de rénovation.
+- **Revenus par IRIS** (Filosofi, INSEE) : pour croiser prix et pouvoir d'achat du quartier.
+
+Vérifie le périmètre, le format et la licence de chaque source avant de l'intégrer.
+
+</details>
 
 ## Ce que tu vas construire
 
@@ -321,6 +403,85 @@ dbt run-operation load_dvf --args '{force: true}'
 
 </details>
 
+#### Comprendre les IRIS
+
+Un **IRIS** (Îlot Regroupé pour l'Information Statistique) est le découpage infra-communal de l'INSEE : un quartier d'environ 2 000 habitants. Les communes de moins de 10 000 habitants sont en général **non découpées** : elles n'ont qu'un seul IRIS, qui couvre toute la commune.
+
+Le **code IRIS** fait 9 caractères : le code commune INSEE (5) suivi de 4 chiffres. Exemple de forme : `59350` (commune) + `0101` (IRIS) → `593500101`.
+
+**Le grain : une ligne par IRIS.** Contrairement à DVF, il n'y a pas de piège de répétition : un IRIS = une ligne = une géométrie (un polygone ou un multipolygone). Le piège vient de la **jointure** avec DVF, voir ci-dessous.
+
+<details>
+<summary>Colonnes à connaître (IRIS)</summary>
+
+Les contours IGN fournissent ces champs. Vérifie les noms réels dans ton seed avec `describe main.iris_59` : le seed a pu renommer ou écarter certaines colonnes.
+
+| Colonne | Contenu | Attention |
+|---|---|---|
+| `code_iris` | Identifiant de l'IRIS (9 caractères) | À garder en **texte** : les zéros initiaux comptent (départements `01` à `09`, mais aussi les `0000`) |
+| `nom_iris` | Nom de l'IRIS | Peut être répété d'une commune à l'autre |
+| `insee_com` | Code commune INSEE | Clé de rattachement avec `code_commune` de DVF |
+| `nom_com` | Nom de la commune | Pour l'affichage, pas pour joindre |
+| `typ_iris` | Type : `H` (habitat), `A` (activité), `D` (divers), `Z` (commune non découpée) | Les IRIS `A` et `D` ont peu ou pas d'habitants : à connaître avant d'analyser par habitant |
+| géométrie (WKT) | Contour en WGS84 (longitude, latitude) | Stockée en **texte** dans le seed : à convertir avec `st_geomfromtext` |
+
+</details>
+
+<details>
+<summary>Pièges de qualité à anticiper (IRIS)</summary>
+
+- **Ordre des coordonnées** : en WKT et dans `st_point`, l'ordre est **longitude puis latitude** (x, y). L'inverser donne zéro correspondance, sans erreur.
+- **Transactions sans IRIS** : coordonnées manquantes dans DVF, point hors des contours (bord de mer, géocodage approximatif), ou département absent du seed. Mesure le taux de transactions non rattachées.
+- **Points sur une frontière** : avec des contours simplifiés (~10 m), un point proche d'une limite peut tomber dans l'IRIS voisin, voire dans deux IRIS (doublons après jointure). Vérifie que ta jointure ne multiplie pas les lignes DVF.
+- **Millésime** : les contours IRIS ont une année de référence et les communes fusionnent. Une transaction ancienne peut porter un code commune qui n'existe plus dans le référentiel.
+- **Communes non découpées** : pour un IRIS de type `Z`, « le quartier » est toute la commune. Ne compare pas ces lignes aux IRIS d'une grande ville sans en tenir compte.
+- **Géométries invalides** : après simplification, un polygone peut devenir invalide. Teste avec `st_isvalid`.
+- **Texte vs géométrie** : la colonne WKT est du texte tant qu'elle n'est pas convertie. Une jointure spatiale dessus ne marche pas et ne lève pas toujours une erreur claire.
+
+</details>
+
+<details>
+<summary>Exemple : rattacher une transaction à son IRIS</summary>
+
+Dans l'UI DuckDB (extension `spatial` active dans ton profil), pour vérifier le taux de rattachement avant de modéliser :
+
+```sql
+with iris as (
+    select code_iris, st_geomfromtext(geometrie_wkt) as geom  -- adapte le nom de colonne
+    from main.iris_59
+),
+
+mutations as (
+    select distinct id_mutation, longitude, latitude
+    from main.dvf
+    where longitude is not null and latitude is not null
+)
+
+select
+    count(*) as nb_mutations,
+    count(iris.code_iris) as nb_rattachees,
+    count(*) - count(iris.code_iris) as nb_sans_iris,
+    count(*) - count(distinct m.id_mutation) as lignes_en_double
+from mutations as m
+left join iris
+    on st_within(st_point(m.longitude, m.latitude), iris.geom)
+```
+
+`lignes_en_double` doit rester à 0 : sinon, un point tombe dans plusieurs IRIS et ta jointure multiplie les mutations. Cette requête est un point de départ : à toi de choisir comment traiter les cas limites dans ton modèle.
+
+</details>
+
+<details>
+<summary>Pistes de tests dbt (IRIS)</summary>
+
+- `unique` et `not_null` sur `code_iris`
+- `accepted_values` sur `typ_iris` (`H`, `A`, `D`, `Z`)
+- Un test sur la longueur de `code_iris` (9 caractères)
+- Un test singulier : aucune mutation n'est dupliquée après la jointure spatiale
+- Un seuil d'alerte sur le taux de transactions sans IRIS (par exemple via `dbt_utils.expression_is_true` sur un modèle agrégé)
+
+</details>
+
 ## Structure du projet
 
 <details>
@@ -447,7 +608,7 @@ Voir aussi [Pièges de qualité à anticiper](#comprendre-la-donnée-dvf) pour l
 - Le repo doit contenir :
   - un **README** (objectif, architecture, comment relancer le projet)
   - tes **tests dbt** et ta **CI** qui passent
-  - un **dashboard** fonctionnel, publié avec le site
+  - un **dashboard** fonctionnel, publié avec le site, qui répond aux questions de **ton rôle** (promoteur ou marchand de biens)
   - une courte section sur tes **choix de modélisation** et leurs compromis (grain choisi, traitement des prix aberrants et des ventes multi-biens, gestion des coordonnées manquantes)
 
 Les critères d'évaluation complets sont dans la formation.
